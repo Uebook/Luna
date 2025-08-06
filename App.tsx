@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import type {PropsWithChildren} from 'react';
+import type { PropsWithChildren } from 'react';
 import {
   ScrollView,
   StatusBar,
@@ -23,12 +23,32 @@ import {
   LearnMoreLinks,
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
+import SplashScreen from './src/screen/SplashScreen';
+import CreateAccountScreen from './src/screen/CreateAccount';
+import LoginScreen from './src/screen/LoginScreen';
+import PasswordScreen from './src/screen/PasswordScreen';
+import PasswordRecoveryScreen from './src/screen/PasswordRecoveryScreen';
+import SetupNewPasswordScreen from './src/screen/SetupNewPasswordScreen';
+import PasswordRecoveryScreenS from './src/screen/PasswordRecoveryScreenS';
+import OnboardingScreen, { onboardingData } from './src/screen/OnboardingScreen';
+import ShopScreen from './src/ShopScreen';
+import ReviewScreen from './src/ReviewScreen';
+import WishlistScreen from './src/WishlistScreen';
+import RecentlyViewedScreen from './src/RecentlyViewedScreen';
+import CartScreen from './src/CartScreen';
+import ProfileScreen from './src/ProfileScreen';
+import ToReceiveOrdersScreen from './src/screen/ToReceiveOrdersScreen';
+import OrderTrackingScreen from './src/screen/OrderTrackingScreen';
+import HistoryScreen from './src/screen/HistoryScreen';
+import ChatBotModal from './src/screen/ChatBotModal';
+import RootNavigator from './src/navigation/RootNavigator';
+import ActivityScreen from './src/screen/ActivityScreen';
 
 type SectionProps = PropsWithChildren<{
   title: string;
 }>;
 
-function Section({children, title}: SectionProps): React.JSX.Element {
+function Section({ children, title }: SectionProps): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
   return (
     <View style={styles.sectionContainer}>
@@ -73,46 +93,15 @@ function App(): React.JSX.Element {
   const safePadding = '5%';
 
   return (
-    <View style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        style={backgroundStyle}>
-        <View style={{paddingRight: safePadding}}>
-          <Header/>
-        </View>
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-            paddingHorizontal: safePadding,
-            paddingBottom: safePadding,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </View>
+    <View style={{ flex: 1 }}>
+      < RootNavigator />
+    </View >
   );
 }
 
 const styles = StyleSheet.create({
   sectionContainer: {
     marginTop: 32,
-    paddingHorizontal: 24,
   },
   sectionTitle: {
     fontSize: 24,
