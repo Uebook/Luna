@@ -127,7 +127,7 @@ const ToReceiveOrdersScreen = ({navigation}) => {
                 )}
               </View>
             </View>
-
+  
             {/* Right Side */}
             <View style={styles.rightSection}>
               <Text style={styles.itemCount}>
