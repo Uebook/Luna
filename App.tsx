@@ -30,7 +30,7 @@ import PasswordScreen from './src/screen/PasswordScreen';
 import PasswordRecoveryScreen from './src/screen/PasswordRecoveryScreen';
 import SetupNewPasswordScreen from './src/screen/SetupNewPasswordScreen';
 import PasswordRecoveryScreenS from './src/screen/PasswordRecoveryScreenS';
-import OnboardingScreen, { onboardingData } from './src/screen/OnboardingScreen';
+import OnboardingScreen from './src/screen/OnboardingScreen';
 import ShopScreen from './src/ShopScreen';
 import ReviewScreen from './src/ReviewScreen';
 import WishlistScreen from './src/WishlistScreen';
