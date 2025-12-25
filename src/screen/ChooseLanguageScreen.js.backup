@@ -1,0 +1,383 @@
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    FlatList,
+    TouchableOpacity,
+    SafeAreaView,
+    Platform,
+    ToastAndroid,
+    Alert,
+    I18nManager,
+} from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from 'react-i18next';
+import { useFocusEffect } from '@react-navigation/native';
+import axios from 'axios';
+import i18n, { setAppLanguage } from '../i18n';
+import RNRestart from 'react-native-restart';
+import { useTheme } from '../context/ThemeContext';
+import StandardHeader from '../components/StandardHeader';
+import { SkeletonFormScreen } from '../components/SkeletonLoader';
+import { useSkeletonLoader } from '../hooks/useSkeletonLoader';
+
+/* ------- storage helpers ------- */
+export const LANGUAGE_STORAGE_KEY = '@app:selected_language';
+export const USER_STORAGE_KEY = 'luna_user';
+
+export const getStoredLanguage = async () => {
+    try { return (await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY)) || 'en'; }
+    catch { return 'en'; }
+};
+
+export const setStoredLanguage = async (language) => {
+    try { await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, language); } catch { }
+};
+
+/* ------- data ------- */
+// Languages will be translated in the component
+const LANGUAGES = [
+    { id: 'en', labelKey: 'english' },
+    { id: 'ar', labelKey: 'arabic' },
+];
+
+const ChooseLanguageScreen = ({ navigation }) => {
+    const { t } = useTranslation('language');
+    const isRTL = I18nManager.isRTL;
+    const { theme, isDark } = useTheme();
+    const [loading, setLoading] = useSkeletonLoader(true, 600);
+
+    const [selectedLang, setSelectedLang] = useState('en');
+    const [userId, setUserId] = useState(null);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => setLoading(false), 800);
+        return () => clearTimeout(timer);
+    }, [setLoading]);
+    const [storedUser, setStoredUser] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+
+    // Load user data to get user_id
+    useFocusEffect(
+        useCallback(() => {
+            let active = true;
+            (async () => {
+                try {
+                    const savedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
+                    if (!active) return;
+
+                    if (savedUser) {
+                        const parsedUser = JSON.parse(savedUser);
+                        setStoredUser(parsedUser);
+
+                        // Extract user_id from different possible structures
+                        const userId = parsedUser?.user?.id ||
+                            parsedUser?.data?.id ||
+                            parsedUser?.id ||
+                            parsedUser?.user_id;
+                        setUserId(userId);
+                    }
+                } catch (error) {
+                    console.log('Error loading user data:', error);
+                }
+            })();
+            return () => { active = false; };
+        }, [])
+    );
+
+    useEffect(() => {
+        const current = i18n.language?.startsWith('ar') ? 'ar' : 'en';
+        setSelectedLang(current);
+
+        const onChange = (lng) => setSelectedLang(lng?.startsWith('ar') ? 'ar' : 'en');
+        i18n.on('languageChanged', onChange);
+        return () => i18n.off('languageChanged', onChange);
+    }, []);
+
+    const toast = (msg, type = 'success') => {
+        const message = typeof msg === 'string' ? msg : 'Language updated successfully!';
+        if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
+        else Alert.alert(type === 'success' ? 'Success' : 'Error', message);
+    };
+
+    const updateLanguageAPI = async (language) => {
+        setIsLoading(true);
+
+        const formData = new FormData();
+        formData.append('language', language);
+        formData.append('user_id', userId);
+
+        console.log("Updating language with data:", {
+            language: language,
+            user_id: userId
+        });
+
+        try {
+            const res = await axios.post(
+                'https://luna-api.proteinbros.in/public/api/v1/auth/update-profile',
+                formData,
+                {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    timeout: 15000
+                }
+            );
+
+            console.log("Language update response:", res.data);
+
+            if (res?.data?.status) {
+                // Update local storage with new language data
+                if (storedUser) {
+                    const container = storedUser?.user ? 'user' : (storedUser?.data ? 'data' : null);
+                    const base = container ? storedUser[container] : storedUser;
+
+                    const mergedUser = {
+                        ...base,
+                        language: language,
+                    };
+
+                    let updatedUser;
+                    if (container) {
+                        updatedUser = { ...storedUser, [container]: mergedUser };
+                    } else {
+                        updatedUser = mergedUser;
+                    }
+
+                    await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+                    setStoredUser(updatedUser);
+                }
+
+                // Also store language separately for quick access
+                await setStoredLanguage(language);
+
+                // Update app language
+                await setAppLanguage(language);
+                setSelectedLang(language);
+
+                toast(t('saved', { defaultValue: 'Language updated successfully!' }), 'success');
+
+                // Restart app to fully apply RTL/LTR changes
+                setTimeout(() => RNRestart.restart(), 500);
+
+                return { success: true, data: res.data };
+            } else {
+                toast(res?.data?.message || 'Language update failed.', 'error');
+                return { success: false, error: res?.data?.message || 'Language update failed' };
+            }
+        } catch (err) {
+            console.log('Update language error:', err.response?.data || err.message);
+            const errorMessage = err?.response?.data?.message || 'Network error. Please try again.';
+            toast(errorMessage, 'error');
+            return { success: false, error: errorMessage };
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const pickLanguage = useCallback(async (langId) => {
+        if (isLoading) return;
+
+        // Update local state immediately for better UX
+        setSelectedLang(langId);
+
+        // Update on server if user is logged in
+        if (userId) {
+            await updateLanguageAPI(langId);
+        } else {
+            // For guest users, just save locally and restart
+            try {
+                await setStoredLanguage(langId);
+                await setAppLanguage(langId);
+
+                toast(t('saved_local', { defaultValue: 'Language saved locally' }), 'success');
+
+                // Restart app to fully apply RTL/LTR changes
+                setTimeout(() => RNRestart.restart(), 500);
+            } catch {
+                toast(t('error_saving', { defaultValue: 'Failed to change language' }), 'error');
+            }
+        }
+    }, [userId, isLoading, t]);
+
+    const currentLabel = t(LANGUAGES.find((l) => l.id === selectedLang)?.labelKey || 'english');
+
+    const renderItem = ({ item }) => {
+        const isSelected = selectedLang === item.id;
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.item,
+                    isRTL && { flexDirection: 'row-reverse' },
+                    isLoading && styles.disabledItem
+                ]}
+                onPress={() => pickLanguage(item.id)}
+                activeOpacity={0.9}
+                disabled={isLoading}
+            >
+                <Text style={[styles.itemText, isLoading && styles.disabledText]}>{t(item.labelKey)}</Text>
+                <View
+                    style={[
+                        styles.circle,
+                        isSelected ? styles.selectedCircle : styles.unselectedCircle,
+                    ]}
+                >
+                    {isSelected && <Icon name="check" size={14} color="#fff" />}
+                </View>
+            </TouchableOpacity>
+        );
+    };
+
+    return (
+        <SafeAreaView style={[styles.container, { writingDirection: isRTL ? 'rtl' : 'ltr' }]}>
+            {/* Standard Header */}
+            <StandardHeader
+                title={t('title', { defaultValue: 'Language' })}
+                navigation={navigation}
+                showGradient={true}
+            />
+
+            {/* Selected banner */}
+            {selectedLang ? (
+                <View style={styles.selectedContainer}>
+                    <Text style={styles.selectedCountry}>{currentLabel}</Text>
+                    <Icon name="check-circle" size={20} color={theme.p1} />
+                </View>
+            ) : null}
+
+            {/* Loading indicator */}
+            {isLoading && (
+                <View style={styles.loadingContainer}>
+                    <Text style={styles.loadingText}>
+                        {t('updating', { defaultValue: 'Updating language...' })}
+                    </Text>
+                </View>
+            )}
+
+            {/* User info */}
+            {userId && (
+                <View style={styles.userInfoContainer}>
+                    <Text style={styles.userInfoText}>
+                        {t('logged_in_as', { defaultValue: 'Updating for user:' })} {userId}
+                    </Text>
+                </View>
+            )}
+
+            {/* Radio list */}
+            <FlatList
+                data={LANGUAGES}
+                keyExtractor={(item) => item.id}
+                renderItem={renderItem}
+                ItemSeparatorComponent={() => <View style={styles.sep} />}
+                contentContainerStyle={{ paddingBottom: 24 }}
+                showsVerticalScrollIndicator={false}
+            />
+        </SafeAreaView>
+    );
+};
+
+export default ChooseLanguageScreen;
+
+/* ---------------- styles ---------------- */
+const createStyles = (theme, isDark) => StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.bg, paddingHorizontal: 16 },
+    headerRow: {
+        height: 56,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+    },
+    backBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: isDark ? theme.line : '#F3F4F6',
+    },
+    headerTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: theme.text
+    },
+    selectedContainer: {
+        backgroundColor: isDark ? theme.p4 : '#EAF0FF',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 14,
+        borderRadius: 10,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: isDark ? theme.line : 'transparent',
+    },
+    selectedCountry: {
+        color: theme.p1,
+        fontWeight: '700'
+    },
+    item: {
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: isDark ? theme.card : '#F9F9F9',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: isDark ? theme.line : '#F1F1F1',
+    },
+    disabledItem: {
+        opacity: 0.6,
+    },
+    sep: {
+        height: 10
+    },
+    itemText: {
+        fontSize: 15,
+        color: theme.text
+    },
+    disabledText: {
+        color: theme.sub
+    },
+    circle: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: isDark ? theme.line : '#E0E0E0',
+    },
+    selectedCircle: {
+        backgroundColor: theme.p1,
+        borderColor: theme.p1,
+    },
+    unselectedCircle: {
+        backgroundColor: isDark ? theme.bg : '#FFFFFF',
+        borderColor: isDark ? theme.line : '#E0E0E0',
+    },
+    loadingContainer: {
+        padding: 10,
+        alignItems: 'center',
+        backgroundColor: isDark ? theme.warning + '30' : '#FFF3CD',
+        borderRadius: 5,
+        marginBottom: 10,
+    },
+    loadingText: {
+        color: isDark ? theme.warning : '#856404',
+        fontSize: 14,
+    },
+    userInfoContainer: {
+        padding: 8,
+        alignItems: 'center',
+        backgroundColor: isDark ? theme.card : '#F8F9FA',
+        borderRadius: 5,
+        marginBottom: 10,
+    },
+    userInfoText: {
+        color: theme.sub,
+        fontSize: 12,
+    },
+});

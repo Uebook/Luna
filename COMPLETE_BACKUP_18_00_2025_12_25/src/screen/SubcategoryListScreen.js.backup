@@ -1,0 +1,249 @@
+// src/screens/SubcategoryListScreen.js
+import React, { useMemo, useEffect, useState } from 'react';
+import {
+    View, Text, StyleSheet, TouchableOpacity, Image, FlatList,
+    Dimensions, Platform, StatusBar, NativeModules
+} from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { useTheme } from '../context/ThemeContext';
+import StandardHeader from '../components/StandardHeader';
+import { SkeletonCategoryScreen } from '../components/SkeletonLoader';
+import { useSkeletonLoader } from '../hooks/useSkeletonLoader';
+
+const { width } = Dimensions.get('window');
+const { StatusBarManager } = NativeModules;
+const COLS = 2;
+const GAP = 12;
+const SUBCAT_W = (width - GAP * 2 - GAP) / COLS;
+
+// Theme-aware subcategory gradients (same as NewHome)
+const getSubcatColors = (variant, isDark) => {
+    if (isDark) {
+        // Dark mode gradients - more vibrant and visible
+        const darkGradients = [
+            ['#3a2f5c', '#4a3f6c'], // Purple tones
+            ['#2a3f4c', '#3a4f5c'], // Blue tones
+            ['#4a3f2c', '#5a4f3c'], // Brown/amber tones
+        ];
+        return darkGradients[variant % darkGradients.length];
+    }
+    // Light mode gradients - soft and elegant
+    const lightGradients = [
+        ['#F5EEFF', '#E5D9FF'],
+        ['#E7F5FF', '#D2EBFF'],
+        ['#FFF4EA', '#FFE2C5'],
+    ];
+    return lightGradients[variant % lightGradients.length];
+};
+
+const SubcatCard = ({ sc, onPress, styles, THEME, variant = 0 }) => {
+    // Handle different data structures - check multiple possible fields
+    const name = sc.name || sc.t || sc.title || sc.subcategory_name || 'Sub-category';
+    const productsCount = sc.products_count || sc.product_count || sc.count || null;
+
+    const colors = getSubcatColors(variant, THEME.isDark);
+
+    return (
+        <TouchableOpacity
+            style={styles.subcatCard}
+            activeOpacity={0.9}
+            onPress={onPress}
+        >
+            <LinearGradient
+                colors={colors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.subcatGradient}
+            >
+                <Text style={styles.subcatName} numberOfLines={2}>
+                    {name}
+                </Text>
+                <View style={styles.subcatRow}>
+                    <Text style={styles.subcatInfo}>
+                        {productsCount ? `${productsCount} products` : 'Explore now'}
+                    </Text>
+                    <Icon name="chevron-forward" size={18} color={THEME.isDark ? THEME.white : THEME.p1} />
+                </View>
+            </LinearGradient>
+        </TouchableOpacity>
+    );
+};
+
+export default function SubcategoryListScreen({ route, navigation }) {
+    const { title = 'Sub-Categories', items = [], category } = route?.params || {};
+    const [loading, setLoading] = useSkeletonLoader(true, 600);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => setLoading(false), 800);
+        return () => clearTimeout(timer);
+    }, [setLoading]);
+
+    // Normalize data - handle different data structures
+    const data = useMemo(() => {
+        const rawItems = Array.isArray(items) ? items : [];
+        return rawItems.map((item, index) => {
+            // Normalize to a consistent structure
+            return {
+                id: item.id || item.subcategory_id || `sub-${index}`,
+                name: item.name || item.t || item.title || item.subcategory_name || `Sub-category ${index + 1}`,
+                products_count: item.products_count || item.product_count || item.count || null,
+                slug: item.slug || item.description || '',
+                ...item, // Keep all original properties
+            };
+        });
+    }, [items]);
+
+    const { theme, isDark } = useTheme();
+    const THEME = {
+        p1: theme.p1,
+        p2: theme.p2,
+        p3: theme.p3,
+        p4: theme.p4,
+        white: theme.white,
+        ink: theme.ink,
+        gray: theme.gray,
+        line: theme.line,
+        card: theme.card,
+        bg: theme.bg,
+        text: theme.text,
+        isDark: isDark,
+    };
+    const gradientHeader = [THEME.p1, THEME.p2, THEME.p3];
+    const styles = useMemo(() => createStyles(THEME), [THEME]);
+    // ✅ robust safe-top without extra libs
+    const [safeTop, setSafeTop] = useState(
+        Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0
+    );
+    useEffect(() => {
+        if (Platform.OS === 'ios' && StatusBarManager) {
+            // on iOS this returns 20 on older iPhones, 44+ on notched ones
+            StatusBarManager.getHeight
+                ? StatusBarManager.getHeight(({ height }) => setSafeTop(height || 0))
+                : setSafeTop(StatusBarManager.HEIGHT || 0);
+        }
+    }, []);
+
+    const Header = () => (
+        <StandardHeader
+            title={`${title}${category ? ` — ${category}` : ''}`}
+            navigation={navigation}
+            showGradient={true}
+        />
+    );
+
+    const Empty = () => (
+        <View style={styles.emptyWrap}>
+            <View style={styles.emptyIcon}>
+                <Icon name="albums-outline" size={22} color={THEME.p3} />
+            </View>
+            <Text style={styles.emptyTitle}>No sub-categories found</Text>
+            <Text style={styles.emptyDesc}>We’ll add items here when this category gets updated.</Text>
+        </View>
+    );
+
+    if (loading) {
+        return (
+            <View style={styles.page}>
+                <Header />
+                <SkeletonCategoryScreen />
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.page}>
+            <Header />
+            <FlatList
+                data={data}
+                keyExtractor={(_, i) => `sub-${i}`}
+                numColumns={COLS}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContent}
+                columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: GAP }}
+                ListEmptyComponent={<Empty />}
+                renderItem={({ item, index }) => (
+                    <SubcatCard
+                        sc={item}
+                        variant={index}
+                        onPress={() => {
+                            navigation?.navigate?.('SubCategoryProductsScreen', {
+                                subcategory: {
+                                    id: item.id,
+                                    name: item.name || item.t || 'Sub-category',
+                                    description: item.slug || item.description || '',
+                                    banner: item.img || item.image || item.banner || null,
+                                }
+                            });
+                        }}
+                        styles={styles}
+                        THEME={THEME}
+                    />
+                )}
+            />
+        </View>
+    );
+}
+
+const createStyles = (THEME) => StyleSheet.create({
+    page: { flex: 1, backgroundColor: THEME.bg },
+
+    /* Header */
+    header: {
+        paddingBottom: 12,
+        paddingHorizontal: 12,
+        borderBottomLeftRadius: 18,
+        borderBottomRightRadius: 18,
+
+    },
+    headerRow: { flexDirection: 'row', alignItems: 'center', paddingTop: 30 },
+    backBtn: {
+        width: 36, height: 36, borderRadius: 18,
+        alignItems: 'center', justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.18)', marginRight: 8,
+    },
+    headerTitle: { color: THEME.white, fontWeight: '900', fontSize: 18 },
+
+    /* Grid */
+    listContent: { paddingTop: 12, paddingBottom: 24 },
+    subcatCard: {
+        width: SUBCAT_W,
+        marginBottom: 14,
+    },
+    subcatGradient: {
+        borderRadius: 18,
+        paddingVertical: 18,
+        paddingHorizontal: 16,
+        minHeight: 112,
+        justifyContent: 'space-between',
+        borderWidth: 1,
+        borderColor: THEME.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(15,16,32,0.05)',
+    },
+    subcatName: {
+        color: THEME.isDark ? THEME.white : THEME.ink,
+        fontWeight: '900',
+        fontSize: 15,
+        marginBottom: 8,
+    },
+    subcatRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: 12
+    },
+    subcatInfo: {
+        color: THEME.isDark ? 'rgba(255,255,255,0.7)' : THEME.gray,
+        fontSize: 12,
+        fontWeight: '600',
+        flex: 1,
+    },
+
+    /* Empty */
+    emptyWrap: { alignItems: 'center', marginTop: 48, paddingHorizontal: 20 },
+    emptyIcon: {
+        width: 44, height: 44, borderRadius: 22, backgroundColor: THEME.p4,
+        alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: THEME.line
+    },
+    emptyTitle: { fontSize: 16, fontWeight: '900', color: THEME.ink },
+    emptyDesc: { marginTop: 6, color: THEME.gray, textAlign: 'center' },
+});

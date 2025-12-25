@@ -1,0 +1,186 @@
+// StandardHeader.js - Reusable header component for all internal screens
+import React from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    Platform,
+    StatusBar,
+    useWindowDimensions,
+} from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { useTheme } from '../context/ThemeContext';
+import { useResponsive } from '../utils/useResponsive';
+import i18n from '../i18n';
+
+// Safe area helper - now uses responsive dimensions
+const getSafeTop = (width, height) => {
+    const isIOS = Platform.OS === 'ios';
+    const hasNotch = isIOS && Math.max(width, height) >= 812;
+    if (!isIOS) return StatusBar.currentHeight || 0;
+    return hasNotch ? 44 : 20;
+};
+
+const StandardHeader = ({
+    title,
+    navigation,
+    onBackPress,
+    rightComponent,
+    showGradient = true,
+    transparent = false,
+}) => {
+    const { theme, isDark } = useTheme();
+    const { width, height, scale, fontSize } = useResponsive();
+    const isRTL = i18n?.dir?.() === 'rtl';
+    const safeTop = getSafeTop(width, height);
+    const styles = createStyles(scale, fontSize);
+
+    // In dark mode, use dark background instead of gradient
+    const gradientColors = showGradient
+        ? (isDark ? [theme.card, theme.card, theme.card] : [theme.p2, theme.p1, theme.p1])
+        : [theme.header, theme.header];
+
+    const handleBackPress = () => {
+        if (onBackPress) {
+            onBackPress();
+        } else if (navigation) {
+            navigation.goBack();
+        }
+    };
+
+    const headerContent = (
+        <View style={[styles.header, isRTL && { flexDirection: 'row-reverse' }]}>
+            <TouchableOpacity
+                onPress={handleBackPress}
+                style={[
+                    styles.backBtn,
+                    transparent && { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
+                    !transparent && showGradient && isDark && { backgroundColor: theme.bg },
+                    !transparent && showGradient && !isDark && { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
+                    !transparent && !showGradient && { backgroundColor: isDark ? theme.line : '#F3F4F6' },
+                ]}
+                activeOpacity={0.8}
+            >
+                <Icon
+                    name="chevron-back"
+                    size={24}
+                    color={showGradient && !isDark || transparent ? theme.white : theme.text}
+                />
+            </TouchableOpacity>
+            <Text
+                style={[
+                    styles.headerTitle,
+                    { color: showGradient && !isDark || transparent ? theme.white : theme.text }
+                ]}
+            >
+                {title}
+            </Text>
+            <View style={{ width: scale(40) }}>
+                {rightComponent}
+            </View>
+        </View>
+    );
+
+    if (showGradient) {
+        // In dark mode, use View with dark background instead of gradient
+        if (isDark) {
+            return (
+                <View style={[styles.headerGradient, { backgroundColor: theme.card }]}>
+                    <StatusBar
+                        translucent={Platform.OS === 'android'}
+                        backgroundColor="transparent"
+                        barStyle="light-content"
+                    />
+                    <View style={{ paddingTop: safeTop }}>
+                        {headerContent}
+                    </View>
+                </View>
+            );
+        }
+
+        // Light mode: use gradient
+        return (
+            <LinearGradient
+                colors={gradientColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.headerGradient}
+            >
+                <StatusBar
+                    translucent={Platform.OS === 'android'}
+                    backgroundColor="transparent"
+                    barStyle="light-content"
+                />
+                <View style={{ paddingTop: getSafeTop() }}>
+                    {headerContent}
+                </View>
+            </LinearGradient>
+        );
+    }
+
+    return (
+        <View style={[styles.headerContainer, { backgroundColor: theme.header }]}>
+            <StatusBar
+                translucent={Platform.OS === 'android'}
+                backgroundColor={transparent ? 'transparent' : theme.header}
+                barStyle={isDark ? 'light-content' : 'dark-content'}
+            />
+            <View style={{ paddingTop: getSafeTop() }}>
+                {headerContent}
+            </View>
+        </View>
+    );
+};
+
+// Styles are now created dynamically with responsive values
+const createStyles = (scale, fontSize) => StyleSheet.create({
+    headerGradient: {
+        borderBottomLeftRadius: scale(18),
+        borderBottomRightRadius: scale(18),
+        paddingBottom: scale(12),
+    },
+    headerContainer: {
+        paddingBottom: scale(12),
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: scale(16),
+        paddingTop: scale(8),
+        paddingBottom: scale(4),
+        minHeight: scale(50),
+    },
+    backBtn: {
+        width: scale(40),
+        height: scale(40),
+        borderRadius: scale(20),
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: scale(2) },
+                shadowOpacity: 0.12,
+                shadowRadius: scale(8),
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
+    },
+    headerTitle: {
+        fontSize: fontSize(20),
+        fontWeight: '900',
+        flex: 1,
+        textAlign: 'center',
+        letterSpacing: 0.3,
+    },
+});
+
+export default StandardHeader;
+

@@ -1,0 +1,478 @@
+import React, { useRef, useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  Image,
+  Dimensions,
+  StyleSheet,
+  TouchableOpacity,
+  StatusBar,
+  Platform,
+  Animated,
+  SafeAreaView,
+} from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import useUserStore from '../store/UserStore';
+import { useTheme } from '../context/ThemeContext';
+
+const onboardingData = [
+  {
+    id: '1',
+    title: 'Welcome to Luna',
+    description:
+      'Your ultimate shopping destination. Discover amazing products and exclusive deals tailored just for you.',
+    image: require('../assets/wel1.png'),
+    icon: 'sparkles',
+  },
+  {
+    id: '2',
+    title: 'Discover & Explore',
+    description: 'Browse through thousands of products from top brands. Find exactly what you need with our smart search.',
+    image: require('../assets/wel2.png'),
+    icon: 'search',
+  },
+  {
+    id: '3',
+    title: 'Fast & Secure',
+    description: 'Shop with confidence. Enjoy secure payments and lightning-fast delivery to your doorstep.',
+    image: require('../assets/image6.png'),
+    icon: 'flash',
+  },
+  {
+    id: '4',
+    title: 'Start Shopping',
+    description: 'Join thousands of happy customers. Create your account and unlock exclusive member benefits today!',
+    image: require('../assets/image7.png'),
+    icon: 'rocket',
+  },
+];
+
+const { width, height } = Dimensions.get('window');
+const isSmall = height < 680;
+
+const OnboardingScreen = ({ navigation }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const flatListRef = useRef();
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const { theme } = useTheme();
+
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    {
+      useNativeDriver: false,
+      listener: (event) => {
+        const index = Math.round(event.nativeEvent.contentOffset.x / width);
+        setCurrentIndex(index);
+      },
+    }
+  );
+
+  const handleNext = () => {
+    if (currentIndex < onboardingData.length - 1) {
+      flatListRef.current.scrollToIndex({ index: currentIndex + 1, animated: true });
+    } else {
+      // Check if user data exists in Zustand store
+      const user = useUserStore.getState().user;
+      if (user) {
+        navigation.navigate('MainApp');
+      } else {
+        navigation.navigate('SplashScreen');
+      }
+    }
+  };
+
+  const handleSkip = () => {
+    const user = useUserStore.getState().user;
+    if (user) {
+      navigation.navigate('MainApp');
+    } else {
+      navigation.navigate('SplashScreen');
+    }
+  };
+
+  const renderItem = ({ item, index }) => {
+    const inputRange = [
+      (index - 1) * width,
+      index * width,
+      (index + 1) * width,
+    ];
+
+    const scale = scrollX.interpolate({
+      inputRange,
+      outputRange: [0.8, 1, 0.8],
+      extrapolate: 'clamp',
+    });
+
+    const opacity = scrollX.interpolate({
+      inputRange,
+      outputRange: [0.5, 1, 0.5],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <View style={styles.slide}>
+        <LinearGradient
+          colors={[theme.p2, theme.p1, theme.p1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradientBackground}
+        >
+          <SafeAreaView style={styles.safeArea}>
+            {/* Skip Button */}
+            {currentIndex < onboardingData.length - 1 && (
+              <TouchableOpacity
+                style={styles.skipButton}
+                onPress={handleSkip}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.skipText}>Skip</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Content Card */}
+            <Animated.View
+              style={[
+                styles.card,
+                {
+                  transform: [{ scale }],
+                  opacity,
+                },
+              ]}
+            >
+              {/* Icon Circle */}
+              <View style={styles.iconContainer}>
+                <LinearGradient
+                  colors={['#FFFFFF', '#F8F9FA']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.iconCircle}
+                >
+                  <Ionicons
+                    name={item.icon}
+                    size={40}
+                    color={theme.p1}
+                  />
+                </LinearGradient>
+              </View>
+
+              {/* Image */}
+              <View style={styles.imageContainer}>
+                <Image source={item.image} style={styles.image} resizeMode="contain" />
+                <View style={styles.imageGlow} />
+              </View>
+
+              {/* Text Content */}
+              <View style={styles.textContainer}>
+                <Text style={styles.title}>{item.title}</Text>
+                <Text style={styles.description}>{item.description}</Text>
+              </View>
+            </Animated.View>
+
+            {/* Pagination */}
+            <View style={styles.pagination}>
+              {onboardingData.map((_, index) => {
+                const inputRange = [
+                  (index - 1) * width,
+                  index * width,
+                  (index + 1) * width,
+                ];
+
+                const dotWidth = scrollX.interpolate({
+                  inputRange,
+                  outputRange: [8, 24, 8],
+                  extrapolate: 'clamp',
+                });
+
+                const dotOpacity = scrollX.interpolate({
+                  inputRange,
+                  outputRange: [0.3, 1, 0.3],
+                  extrapolate: 'clamp',
+                });
+
+                return (
+                  <Animated.View
+                    key={index}
+                    style={[
+                      styles.dotContainer,
+                      {
+                        width: dotWidth,
+                        opacity: dotOpacity,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.dot,
+                        currentIndex === index && styles.activeDot,
+                      ]}
+                    />
+                  </Animated.View>
+                );
+              })}
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.buttonContainer}>
+              {currentIndex < onboardingData.length - 1 ? (
+                <TouchableOpacity
+                  onPress={handleNext}
+                  style={styles.nextButton}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={[theme.p1, theme.p2]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.nextButtonGradient}
+                  >
+                    <Text style={styles.nextButtonText}>Next</Text>
+                    <Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />
+                  </LinearGradient>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={handleNext}
+                  style={styles.startButton}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={[theme.p1, theme.p2]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.startButtonGradient}
+                  >
+                    <Text style={styles.startButtonText}>Get Started</Text>
+                    <Ionicons name="rocket" size={20} color="#fff" style={{ marginLeft: 8 }} />
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <FlatList
+        ref={flatListRef}
+        data={onboardingData}
+        renderItem={renderItem}
+        keyExtractor={item => item.id}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        bounces={false}
+      />
+    </View>
+  );
+};
+
+export default OnboardingScreen;
+
+const createStyles = (theme) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.p1,
+  },
+  slide: {
+    width,
+    flex: 1,
+  },
+  gradientBackground: {
+    flex: 1,
+    width: '100%',
+  },
+  safeArea: {
+    flex: 1,
+    paddingTop: Platform.OS === 'ios' ? 0 : 20,
+  },
+  skipButton: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    marginTop: 10,
+    marginRight: 10,
+  },
+  skipText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  card: {
+    flex: 1,
+    width: width * 0.9,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 32,
+    paddingVertical: 40,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 40,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 10 },
+      },
+      android: { elevation: 12 },
+    }),
+  },
+  iconContainer: {
+    marginBottom: 24,
+  },
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.p1,
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  imageContainer: {
+    width: '100%',
+    height: isSmall ? 280 : 320,
+    marginBottom: 32,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+    zIndex: 2,
+  },
+  imageGlow: {
+    position: 'absolute',
+    width: '90%',
+    height: '90%',
+    backgroundColor: theme.p4 || '#EEF7B8',
+    borderRadius: 20,
+    opacity: 0.3,
+    zIndex: 1,
+  },
+  textContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  title: {
+    fontSize: isSmall ? 28 : 32,
+    fontWeight: '800',
+    color: theme.ink,
+    marginBottom: 16,
+    textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  description: {
+    fontSize: isSmall ? 15 : 17,
+    color: theme.gray,
+    textAlign: 'center',
+    lineHeight: 24,
+    paddingHorizontal: 8,
+  },
+  pagination: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 30,
+    paddingHorizontal: 20,
+  },
+  dotContainer: {
+    height: 8,
+    marginHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dot: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  activeDot: {
+    backgroundColor: '#FFFFFF',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#fff',
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 0 },
+      },
+      android: { elevation: 4 },
+    }),
+  },
+  buttonContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 30,
+  },
+  nextButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.p1,
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  nextButtonGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nextButtonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  startButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.p1,
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  startButtonGradient: {
+    paddingVertical: 18,
+    paddingHorizontal: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  startButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+});

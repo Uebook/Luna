@@ -1,0 +1,105 @@
+{
+    "brand": "لونا",
+    "searchPlaceholder": "ابحث عن المنتجات والعلامات التجارية والمزيد",
+    "searchSuggestions": [
+        [
+            "ابحث عن المنتجات",
+            "والعلامات التجارية"
+        ],
+        [
+            "جرب: سترة جينز",
+            "أو فستان زهري"
+        ],
+        [
+            "سماعات لاسلكية",
+            "أو إكسسوارات الهاتف"
+        ]
+    ],
+    "gender": {
+        "women": "نساء",
+        "men": "رجال"
+    },
+    "sizeOptions": [
+        "الكل",
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL",
+        "مقاسات كبيرة"
+    ],
+    "sections": {
+        "explore": "استكشف",
+        "seeAll": "عرض الكل",
+        "topPicks": "اختيارات مميزة لك",
+        "celebrities": "المشاهير",
+        "viewAll": "عرض الكل",
+        "newIn": "جديد",
+        "flashSale": "تخفيضات سريعة",
+        "justForYou": "مخصص لك"
+    },
+    "flashTimer": "ينتهي خلال",
+    "empty": "لا توجد منتجات مطابقة لمرشحاتك.",
+    "bottom": {
+        "newIn": "وصل حديثًا!",
+        "desc": "اكتشف أحدث الأدوات والإكسسوارات والضروريات اليومية المصممة للاعتمادية والأناقة.",
+        "discover": "اكتشف الآن"
+    },
+    "fab": {
+        "stream": "بث مباشر"
+    },
+    "attr": {
+        "warranty": "الضمان",
+        "fit": "المقاس",
+        "sizeSystem": "نظام المقاس",
+        "weight": "الوزن",
+        "finish": "اللمسة",
+        "material": "المادة",
+        "author": "المؤلف",
+        "age": "العمر",
+        "thickness": "السماكة",
+        "metal": "المعدن"
+    },
+    "timer": {
+        "hours": "ساعات",
+        "minutes": "دقائق",
+        "seconds": "ثوانٍ"
+    },
+    "buttons": {
+        "discoverNow": "اكتشف الآن",
+        "viewAll": "عرض الكل",
+        "seeAll": "عرض الكل"
+    },
+    "search": "بحث",
+    "reels": "ريلز",
+    "view_all": "عرض الكل",
+    "celebrities": "المشاهير",
+    "sub_category": "فئة فرعية",
+    "featured_ambassador": "سفير مميز",
+    "story": "قصة",
+    "details": "التفاصيل",
+    "team_luna": "فريق لونا",
+    "coupons_offers": "كوبونات وعروض",
+    "see_all": "عرض الكل",
+    "brand_stores": "متاجر العلامات التجارية",
+    "trending_collections": "المجموعات الرائجة",
+    "explore": "استكشف",
+    "top_picks": "أفضل الاختيارات لك",
+    "best_sellers": "الأكثر مبيعاً",
+    "new_arrivals": "وصل حديثاً",
+    "from_blog": "من مدونتنا",
+    "view_more": "عرض المزيد",
+    "discover_more": "اكتشف المزيد",
+    "deals": "عروض",
+    "for_you": "مخصص لك",
+    "flash_deals": "عروض سريعة",
+    "sub_categories": "الفئات الفرعية",
+    "new_this_week": "جديد هذا الأسبوع",
+    "fresh_picks": "اختيارات جديدة في الموضة والتكنولوجيا والمنزل.",
+    "discover_now": "اكتشف الآن",
+    "hi": "مرحباً",
+    "good_morning": "صباح الخير",
+    "good_afternoon": "مساء الخير",
+    "good_evening": "مساء الخير",
+    "good_night": "تصبحون على خير"
+}

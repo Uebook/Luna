@@ -1,0 +1,488 @@
+import React, { useMemo, useState, useEffect } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, Image, TouchableOpacity,
+  Modal, TextInput, SafeAreaView, Platform, PermissionsAndroid
+} from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import ImagePicker from 'react-native-image-crop-picker';
+import i18n from '../i18n';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../context/ThemeContext';
+import StandardHeader from '../components/StandardHeader';
+import { SkeletonListScreen } from '../components/SkeletonLoader';
+import { useSkeletonLoader } from '../hooks/useSkeletonLoader';
+
+const ALL = 'all';
+const STATUS_FILTERS = [ALL, 'delivered', 'processing'];
+const MAX_PHOTOS = 6;
+
+/** Demo data: unique IDs + ISO dates */
+const ORDERS = [
+  { id: 1001, image: require('../assets/image1.png'), title: 'Classic Burger', description: 'Beef patty, cheddar, pickles, house sauce', orderNumber: '#92287157', dateISO: '2025-04-06', status: 'delivered' },
+  { id: 1002, image: require('../assets/image2.png'), title: 'Chicken Wrap', description: 'Grilled chicken, lettuce, garlic mayo', orderNumber: '#92287158', dateISO: '2025-04-08', status: 'processing' },
+  { id: 1003, image: require('../assets/image3.png'), title: 'Vegan Bowl', description: 'Quinoa, avocado, chickpeas, tahini', orderNumber: '#92287159', dateISO: '2025-04-10', status: 'delivered' },
+  { id: 1004, image: require('../assets/image4.png'), title: 'Margherita Pizza', description: 'Tomato, mozzarella, basil', orderNumber: '#92287160', dateISO: '2025-04-12', status: 'delivered' },
+];
+
+const HistoryScreen = ({ navigation }) => {
+  const { theme } = useTheme();
+  const COLORS = {
+    bg: theme.bg,
+    text: theme.text,
+    sub: theme.sub,
+    line: theme.line,
+    brand: theme.p1,
+    brandSoft: theme.p4,
+    chip: theme.line,
+    card: theme.card,
+    star: theme.warning || '#FBBF24',
+  };
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const { t } = useTranslation('history');
+  const isRTL = i18n.dir() === 'rtl';
+
+  // rating modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [successVisible, setSuccessVisible] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+
+  // review photos
+  const [photos, setPhotos] = useState([]); // [{ uri }]
+
+  // status filter
+  const [statusFilter, setStatusFilter] = useState(ALL);
+
+  const filtered = useMemo(() => {
+    if (statusFilter === ALL) return ORDERS;
+    return ORDERS.filter(o => o.status === statusFilter);
+  }, [statusFilter]);
+
+  const openReview = (order) => {
+    setSelectedOrder(order);
+    setRating(0);
+    setComment('');
+    setPhotos([]); // reset for new review
+    setModalVisible(true);
+  };
+
+  const showSuccess = () => {
+    setSuccessVisible(true);
+    setTimeout(() => setSuccessVisible(false), 1600);
+  };
+
+  const formatDate = (iso) => {
+    try {
+      const d = new Date(iso);
+      return new Intl.DateTimeFormat(i18n.language || 'en', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      }).format(d);
+    } catch {
+      return iso;
+    }
+  };
+
+  /* --------- image pick helpers --------- */
+  const requestGalleryPermission = async () => {
+    if (Platform.OS !== 'android') return true;
+    try {
+      const res = await PermissionsAndroid.request(
+        Platform.Version >= 33
+          ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
+          : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE
+      );
+      return res === PermissionsAndroid.RESULTS.GRANTED;
+    } catch { return false; }
+  };
+
+  const addFromGallery = async () => {
+    const ok = await requestGalleryPermission();
+    if (!ok) return;
+    try {
+      const picked = await ImagePicker.openPicker({
+        multiple: true,
+        mediaType: 'photo',
+        compressImageQuality: 0.85,
+      });
+      const list = Array.isArray(picked) ? picked : [picked];
+      const uris = list.map(x => ({ uri: x.path }));
+      setPhotos(prev => [...prev, ...uris].slice(0, MAX_PHOTOS));
+    } catch { /* user cancelled */ }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const img = await ImagePicker.openCamera({
+        width: 1200, height: 1200, cropping: true, compressImageQuality: 0.85,
+      });
+      setPhotos(prev => [{ uri: img.path }, ...prev].slice(0, MAX_PHOTOS));
+    } catch { /* cancelled */ }
+  };
+
+  const removePhoto = (index) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <StandardHeader 
+          title={t('title')}
+          navigation={navigation}
+          showGradient={true}
+        />
+        <SkeletonListScreen />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      {/* Standard Header */}
+      <StandardHeader 
+        title={t('title')}
+        navigation={navigation}
+        showGradient={true}
+      />
+
+      {/* Filter chips */}
+      <View style={styles.filterRow}>
+        <Text style={styles.filterLabel}>{t('filter.status')}</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingVertical: 6 }}
+          style={{ flexGrow: 0 }}
+        >
+          {STATUS_FILTERS.map(key => {
+            const active = statusFilter === key;
+            const text =
+              key === ALL ? t('status.all') :
+                key === 'delivered' ? t('status.delivered') :
+                  t('status.processing');
+
+            return (
+              <TouchableOpacity
+                key={key}
+                onPress={() => setStatusFilter(key)}
+                activeOpacity={0.8}
+                style={[
+                  styles.chip,
+                  active && { backgroundColor: COLORS.brandSoft, borderColor: COLORS.brand }
+                ]}
+              >
+                <Text style={[styles.chipTxt, active && { color: COLORS.brand, fontWeight: '900' }]}>{text}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Orders list */}
+      <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>
+        {filtered.map((order, index) => (
+          <View key={order.id} style={[styles.card, index === 0 && { marginTop: 8 }]}>
+            <View style={styles.cardLeft}>
+              <Image source={order.image} style={styles.productImage} />
+            </View>
+
+            <View style={styles.cardRight}>
+              <Text style={styles.title} numberOfLines={1}>{order.title}</Text>
+              <Text style={styles.description} numberOfLines={2}>{order.description}</Text>
+
+              <View style={styles.rowBetween}>
+                <Text style={styles.orderNumber}>
+                  {t('order')} <Text style={styles.bold}>{order.orderNumber}</Text>
+                </Text>
+                <Text style={styles.dateChip}>{formatDate(order.dateISO)}</Text>
+              </View>
+
+              <View style={styles.rowBetween}>
+                <Text
+                  style={[
+                    styles.status,
+                    order.status === 'delivered' && { color: '#16A34A', fontWeight: '800' }
+                  ]}
+                >
+                  {t(`status.${order.status}`)}
+                </Text>
+
+                <View style={{ flexDirection: 'row' }}>
+                  <TouchableOpacity
+                    style={[styles.rightBtn, { marginRight: 8 }]}
+                    onPress={() => openReview(order)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="star" size={16} color={COLORS.brand} />
+                    <Text style={styles.rightBtnTxt}>{t('review')}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.viewBtn}
+                    onPress={() => navigation.navigate('OrderDetails', {
+                      order: {
+                        id: order.id,
+                        orderNumber: order.orderNumber,
+                        date: order.dateISO,
+                        status: order.status,
+                        title: order.title,
+                        description: order.description
+                      }
+                    })}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="open-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={styles.viewBtnTxt}>{t('view')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+
+      {/* Review Modal */}
+      <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHeader}>
+              <View style={styles.sheetHandle} />
+              <TouchableOpacity style={styles.closeBtn} onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={20} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalTitle}>{t('leaveReview')}</Text>
+
+            {selectedOrder && (
+              <View style={styles.modalBody}>
+                <View style={styles.modalUserRow}>
+                  <Image source={selectedOrder.image} style={styles.modalImage} />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={styles.modalDesc} numberOfLines={2}>{selectedOrder.description}</Text>
+                    <Text style={styles.modalOrder}>
+                      {t('order')} <Text style={styles.bold}>{selectedOrder.orderNumber}</Text>
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.rateLabel}>{t('yourRating')}</Text>
+                <View style={styles.starsRow}>
+                  {[1, 2, 3, 4, 5].map((num) => (
+                    <TouchableOpacity key={num} onPress={() => setRating(num)} style={{ paddingHorizontal: 4 }}>
+                      <Ionicons name={rating >= num ? 'star' : 'star-outline'} size={32} color={COLORS.star} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.commentLabel}>{t('comment')}</Text>
+                <TextInput
+                  placeholder={t('commentPlaceholder')}
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.commentInput}
+                  multiline
+                  value={comment}
+                  onChangeText={setComment}
+                  textAlignVertical="top"
+                />
+
+                {/* Add Photos actions */}
+                <View style={styles.addPhotosRow}>
+                  <TouchableOpacity style={styles.addAction} onPress={addFromGallery} activeOpacity={0.85}>
+                    <Ionicons name="images-outline" size={18} color={COLORS.brand} />
+                    <Text style={styles.addActionTxt}>{t('addPhotos')}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.addAction} onPress={takePhoto} activeOpacity={0.85}>
+                    <Ionicons name="camera-outline" size={18} color={COLORS.brand} />
+                    <Text style={styles.addActionTxt}>{t('takePhoto')}</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.limitHint}>
+                  {t('photoLimit', { count: MAX_PHOTOS })}
+                </Text>
+
+                {/* Thumbnails */}
+                {!!photos.length && (
+                  <View style={styles.photoGrid}>
+                    {photos.map((p, idx) => (
+                      <View key={idx} style={styles.thumbBox}>
+                        <Image source={{ uri: p.uri }} style={styles.thumb} />
+                        <TouchableOpacity style={styles.removeBtn} onPress={() => removePhoto(idx)}>
+                          <Ionicons name="close" size={14} color="#fff" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={styles.submitButton}
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    // TODO: call your API here
+                    // payload example:
+                    // { orderId: selectedOrder.id, rating, comment, photos: photos.map(p => p.uri) }
+                    setModalVisible(false);
+                    showSuccess();
+                  }}
+                >
+                  <Text style={styles.submitText}>{t('submit')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success Popup */}
+      <Modal transparent visible={successVisible} animationType="fade">
+        <View style={styles.successBackdrop}>
+          <View style={styles.successCard}>
+            <View style={styles.badgeWrap}>
+              <View style={styles.badge}>
+                <Ionicons name="checkmark" size={18} color="#fff" />
+              </View>
+            </View>
+
+            <Text style={styles.doneTitle}>{t('done')}</Text>
+            <Text style={styles.doneSub}>{t('thanks')}</Text>
+
+            <View style={styles.doneStars}>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <Ionicons key={i} name="star" size={24} color={COLORS.star} style={{ marginHorizontal: 2 }} />
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+};
+
+export default HistoryScreen;
+
+/* -------------------- Styles -------------------- */
+const createStyles = (COLORS) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: COLORS.bg },
+
+  header: {
+    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12,
+    flexDirection: 'row', alignItems: 'center',
+    borderBottomWidth: 1, borderBottomColor: COLORS.line, justifyContent: 'space-between',
+  },
+  backBtn: {
+    width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+  },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '800', color: COLORS.text },
+
+  filterRow: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 2 },
+  filterLabel: { color: COLORS.sub, fontWeight: '800', marginBottom: 6 },
+
+  chip: {
+    marginRight: 8,
+    backgroundColor: COLORS.chip,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'transparent'
+  },
+  chipTxt: { color: COLORS.text, fontWeight: '700', fontSize: 12.5 },
+
+  scrollBody: { paddingHorizontal: 16, paddingBottom: 24 },
+
+  card: {
+    flexDirection: 'row', backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.line,
+    padding: 12, marginTop: 14,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } },
+      android: { elevation: 2 },
+    }),
+  },
+  cardLeft: { marginRight: 12 },
+  productImage: { width: 84, height: 84, borderRadius: 12 },
+  cardRight: { flex: 1, justifyContent: 'space-between' },
+  title: { fontSize: 15, color: COLORS.text, fontWeight: '800' },
+  description: { fontSize: 13.5, color: COLORS.sub, marginTop: 2 },
+
+  rowBetween: { marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  orderNumber: { fontSize: 13, color: COLORS.sub },
+  bold: { fontWeight: '800', color: COLORS.text },
+  dateChip: { backgroundColor: COLORS.chip, color: COLORS.text, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, fontSize: 12, overflow: 'hidden' },
+  status: { fontSize: 13, color: COLORS.sub },
+
+  rightBtn: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: COLORS.brandSoft, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10,
+  },
+  rightBtnTxt: { color: COLORS.brand, fontWeight: '800', marginLeft: 6, fontSize: 12.5 },
+
+  viewBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.brand, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+  viewBtnTxt: { color: '#fff', fontWeight: '900', fontSize: 12.5 },
+
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.35)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: COLORS.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 24,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: -2 } },
+      android: { elevation: 8 },
+    }),
+  },
+  sheetHeader: { alignItems: 'center', paddingTop: 10, paddingHorizontal: 16, paddingBottom: 4 },
+  sheetHandle: { width: 44, height: 5, borderRadius: 3, backgroundColor: '#E5E7EB', marginBottom: 8 },
+  closeBtn: { position: 'absolute', right: 12, top: 8, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6' },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.text, paddingHorizontal: 16, marginTop: 4 },
+  modalBody: { paddingHorizontal: 16, paddingTop: 10 },
+  modalUserRow: { flexDirection: 'row', alignItems: 'center' },
+  modalImage: { width: 54, height: 54, borderRadius: 12 },
+  modalDesc: { fontSize: 14, color: COLORS.text },
+  modalOrder: { fontSize: 13, color: COLORS.sub, marginTop: 2 },
+  rateLabel: { marginTop: 16, fontSize: 13, color: COLORS.sub, fontWeight: '700' },
+  starsRow: { flexDirection: 'row', marginTop: 8, marginBottom: 8 },
+  commentLabel: { marginTop: 10, fontSize: 13, color: COLORS.sub, fontWeight: '700' },
+  commentInput: {
+    backgroundColor: COLORS.brandSoft, borderRadius: 12, padding: 12, fontSize: 14, height: 96,
+    textAlignVertical: 'top', borderWidth: 1, borderColor: '#E0E7FF', color: COLORS.text,
+  },
+
+  addPhotosRow: { flexDirection: 'row', marginTop: 12 },
+  addAction: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.chip,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, marginRight: 10,
+  },
+  addActionTxt: { marginLeft: 6, color: COLORS.text, fontWeight: '800', fontSize: 12.5 },
+  limitHint: { marginTop: 6, color: COLORS.sub, fontSize: 12 },
+
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },
+  thumbBox: {
+    width: 72, height: 72, borderRadius: 10, overflow: 'hidden',
+    marginRight: 8, marginBottom: 8, position: 'relative', backgroundColor: '#F3F4F6',
+  },
+  thumb: { width: '100%', height: '100%' },
+  removeBtn: {
+    position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center'
+  },
+
+  submitButton: { marginTop: 14, backgroundColor: COLORS.brand, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  submitText: { color: '#fff', fontWeight: '900' },
+
+  successBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center' },
+  successCard: {
+    width: '78%', backgroundColor: '#fff', borderRadius: 16, paddingVertical: 18, paddingHorizontal: 16, alignItems: 'center',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 14, shadowOffset: { width: 0, height: 10 } },
+      android: { elevation: 6 },
+    }),
+  },
+  badgeWrap: { position: 'absolute', top: -22, alignItems: 'center', justifyContent: 'center' },
+  badge: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.brand, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: '#fff' },
+  doneTitle: { marginTop: 18, fontSize: 18, fontWeight: '900', color: COLORS.text },
+  doneSub: { marginTop: 4, color: COLORS.sub, fontWeight: '700' },
+  doneStars: { flexDirection: 'row', marginTop: 10, marginBottom: 4 },
+});

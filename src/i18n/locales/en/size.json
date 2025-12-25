@@ -1,0 +1,66 @@
+{
+    "a11y": {
+        "back": "Back"
+    },
+    "header": {
+        "adult": "Size Profile",
+        "kid": "Kid’s Size Profile"
+    },
+    "titles": {
+        "adult": "Set Your Size for",
+        "kid": "Create Kid’s Size Profile"
+    },
+    "subtitles": {
+        "adult": "Enter your details for personalized recommendations.",
+        "kid": "Enter your child’s details for personalized recommendations."
+    },
+    "tabs": {
+        "man": "Man",
+        "woman": "Woman",
+        "kids": "Kids"
+    },
+    "gender": "Gender",
+    "kidGender": {
+        "boy": "Boy",
+        "girl": "Girl",
+        "na": "Prefer not to say"
+    },
+    "age": "Age",
+    "height": "Height",
+    "weight": "Weight",
+    "chest": "Chest",
+    "chestSize": "Chest size",
+    "bust": "Bust size",
+    "waist": "Waist",
+    "hips": "Hips",
+    "optional": "Optional",
+    "preferNoSelect": "Prefer not to select",
+    "trueToSize": "True to size",
+    "bodyShape": "Body Shape",
+    "shapes": {
+        "rectangle": "Rectangle",
+        "hourglass": "Hourglass",
+        "pear": "Pear",
+        "apple": "Apple",
+        "invertedTriangle": "Inverted Triangle",
+        "oval": "Oval"
+    },
+    "preference": "What’s your Preference?",
+    "slim": "Slim fit",
+    "relaxed": "Relaxed",
+    "skip": "Skip",
+    "submit": "Submit",
+    "units": {
+        "cm": "cm",
+        "in": "in",
+        "kg": "kg",
+        "lbs": "lbs",
+        "years": "years"
+    },
+    "hints": {
+        "adultMetric": "180 cm / 71 in • 73 kg / 161 lbs",
+        "adultImperial": "71 in / 180 cm • 161 lbs / 73 kg",
+        "kidMetric": "112 cm / 44 in • 19 kg / 42 lbs",
+        "kidImperial": "44 in / 112 cm • 42 lbs / 19 kg"
+    }
+}

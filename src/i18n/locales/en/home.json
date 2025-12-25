@@ -1,0 +1,95 @@
+{
+    "brand": "luna",
+    "searchPlaceholder": "Search products, brands and more",
+    "searchSuggestions": [
+        [
+            "Search products, brands",
+            "and more"
+        ],
+        [
+            "Try: denim jacket",
+            "or floral midi dress"
+        ],
+        [
+            "Wireless earbuds",
+            "or phone accessories"
+        ]
+    ],
+    "gender": {
+        "women": "Women",
+        "men": "Men"
+    },
+    "sizeOptions": [
+        "All",
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL",
+        "Plus Sizes"
+    ],
+    "sections": {
+        "explore": "Explore",
+        "seeAll": "See All",
+        "topPicks": "Top Picks for You",
+        "celebrities": "Celebrities",
+        "viewAll": "View All",
+        "newIn": "New In",
+        "flashSale": "Flash Sale",
+        "justForYou": "Just For You"
+    },
+    "flashTimer": "Ends in",
+    "empty": "No items match your filters.",
+    "bottom": {
+        "newIn": "NEW IN!",
+        "desc": "Dive into the latest gadgets, accessories, and daily essentials built for reliability and great style.",
+        "discover": "Discover Now"
+    },
+    "fab": {
+        "stream": "Stream"
+    },
+    "attr": {
+        "warranty": "Warranty",
+        "fit": "Fit",
+        "sizeSystem": "Size System",
+        "weight": "Weight",
+        "finish": "Finish",
+        "material": "Material",
+        "author": "Author",
+        "age": "Age",
+        "thickness": "Thickness",
+        "metal": "Metal"
+    },
+    "search": "Search",
+    "reels": "Reels",
+    "view_all": "View all",
+    "celebrities": "Celebrities",
+    "sub_category": "Sub-category",
+    "featured_ambassador": "Featured ambassador",
+    "story": "Story",
+    "details": "Details",
+    "team_luna": "Team Luna",
+    "coupons_offers": "Coupons & Offers",
+    "see_all": "See all",
+    "brand_stores": "Brand Stores",
+    "trending_collections": "Trending Collections",
+    "explore": "Explore",
+    "top_picks": "Top Picks for You",
+    "best_sellers": "Best Sellers",
+    "new_arrivals": "New Arrivals",
+    "from_blog": "From Our Blog",
+    "view_more": "View more",
+    "discover_more": "Discover More",
+    "deals": "Deals",
+    "for_you": "For You",
+    "flash_deals": "Flash Deals",
+    "sub_categories": "Sub-Categories",
+    "new_this_week": "New this week",
+    "fresh_picks": "Fresh picks across fashion, tech and home.",
+    "discover_now": "Discover now",
+    "hi": "Hi",
+    "good_morning": "Good morning",
+    "good_afternoon": "Good afternoon",
+    "good_evening": "Good evening",
+    "good_night": "Good night"
+}

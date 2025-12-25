@@ -1,0 +1,30 @@
+{
+    "title": "Luna Gift Cards",
+    "tabs": {
+        "all": "All Occasions",
+        "birthday": "Birthday",
+        "anniversary": "Anniversary",
+        "holiday": "Holiday",
+        "thankyou": "Thank You",
+        "congrats": "Congratulations"
+    },
+    "noCards": "No cards in this category.",
+    "selectedLabel": "Selected Card:",
+    "next": "NEXT",
+    "enterDetails": "Enter Details",
+    "cardPrefix": "Card:",
+    "name": "Name",
+    "contact": "Email / Phone",
+    "message": "Message",
+    "amount": "Amount",
+    "phName": "Enter your name",
+    "phContact": "you@example.com or +1 555 123 4567",
+    "phMessage": "Optional message",
+    "phAmount": "Enter amount",
+    "proceed": "PROCEED",
+    "errors": {
+        "required": "Required",
+        "validContact": "Enter valid email or phone",
+        "validAmount": "Enter valid amount"
+    }
+}

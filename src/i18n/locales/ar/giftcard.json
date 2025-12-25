@@ -1,0 +1,30 @@
+{
+    "title": "بطاقات هدايا لونا",
+    "tabs": {
+        "all": "لكل المناسبات",
+        "birthday": "عيد ميلاد",
+        "anniversary": "ذكرى سنوية",
+        "holiday": "عطلات",
+        "thankyou": "شكراً لك",
+        "congrats": "تهانينا"
+    },
+    "noCards": "لا توجد بطاقات في هذه الفئة.",
+    "selectedLabel": "البطاقة المختارة:",
+    "next": "التالي",
+    "enterDetails": "أدخل التفاصيل",
+    "cardPrefix": "البطاقة:",
+    "name": "الاسم",
+    "contact": "البريد الإلكتروني / الهاتف",
+    "message": "رسالة",
+    "amount": "المبلغ",
+    "phName": "اكتب اسمك",
+    "phContact": "you@example.com أو ‎+1 555 123 4567",
+    "phMessage": "رسالة اختيارية",
+    "phAmount": "أدخل المبلغ",
+    "proceed": "متابعة",
+    "errors": {
+        "required": "حقل مطلوب",
+        "validContact": "أدخل بريداً إلكترونياً أو هاتفاً صالحاً",
+        "validAmount": "أدخل مبلغاً صالحاً"
+    }
+}

@@ -1,0 +1,237 @@
+import React, { useMemo, useEffect } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    FlatList,
+    Image,
+    TouchableOpacity,
+    Platform,
+    StatusBar,
+} from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import Icon from 'react-native-vector-icons/Feather';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useTheme } from '../context/ThemeContext';
+import { SkeletonNotificationScreen } from '../components/SkeletonLoader';
+import { useSkeletonLoader } from '../hooks/useSkeletonLoader';
+
+const notifications = [
+    {
+        id: '1',
+        title: 'Order Shipped',
+        message: 'Your order #12345 has been shipped.',
+        time: '2h ago',
+        icon: 'truck',
+    },
+    {
+        id: '2',
+        title: 'Payment Successful',
+        message: 'You have paid $45.00 for your order.',
+        time: '5h ago',
+        icon: 'credit-card',
+    },
+    {
+        id: '3',
+        title: 'New Message',
+        message: 'Customer support replied to your query.',
+        time: '1d ago',
+        icon: 'message-circle',
+    },
+    {
+        id: '4',
+        title: 'Welcome!',
+        message: 'Thanks for joining our app. Enjoy shopping!',
+        time: '2d ago',
+        icon: 'smile',
+    },
+];
+
+const NotificationItem = ({ item, styles, C }) => (
+    <TouchableOpacity style={styles.item}>
+        <View style={styles.iconWrapper}>
+            <Icon name={item.icon} size={22} color={C.brand} />
+        </View>
+        <View style={{ flex: 1 }}>
+            <Text style={styles.title}>{item.title}</Text>
+            <Text style={styles.message}>{item.message}</Text>
+            <Text style={styles.time}>{item.time}</Text>
+        </View>
+    </TouchableOpacity>
+);
+
+const NotificationScreen = ({ navigation }) => {
+    const { theme } = useTheme();
+    const [loading, setLoading] = useSkeletonLoader(true, 600);
+
+    const C = useMemo(() => ({
+        bg: theme.bg,
+        card: theme.card,
+        text: theme.text,
+        sub: theme.sub,
+        line: theme.line,
+        brand: theme.p1,
+        brandSoft: theme.p4,
+        p1: theme.p1,
+        p2: theme.p2,
+    }), [theme]);
+
+    const styles = useMemo(() => createStyles(C), [C]);
+    const safeTop = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0;
+
+    // Simulate loading data - replace with actual API call
+    useEffect(() => {
+        // Replace this with your actual data fetching
+        const fetchData = async () => {
+            // await fetchNotifications();
+            setLoading(false);
+        };
+        fetchData();
+    }, [setLoading]);
+
+    if (loading) {
+        return (
+            <View style={styles.container}>
+                {Platform.OS === 'android' && (
+                    <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+                )}
+                <LinearGradient
+                    colors={[C.p2, C.p1, C.p1]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.header, { paddingTop: safeTop }]}
+                >
+                    <SafeAreaView>
+                        <View style={styles.headerContent}>
+                            <TouchableOpacity
+                                onPress={() => navigation?.goBack()}
+                                style={styles.backButton}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                            </TouchableOpacity>
+                            <Text style={styles.headerTitle}>Notifications</Text>
+                            <View style={styles.placeholder} />
+                        </View>
+                    </SafeAreaView>
+                </LinearGradient>
+                <SkeletonNotificationScreen />
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.container}>
+            {Platform.OS === 'android' && (
+                <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+            )}
+            <LinearGradient
+                colors={[C.p2, C.p1, C.p1]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.header, { paddingTop: safeTop }]}
+            >
+                <SafeAreaView>
+                    <View style={styles.headerContent}>
+                        <TouchableOpacity
+                            onPress={() => navigation?.goBack()}
+                            style={styles.backButton}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                        </TouchableOpacity>
+                        <Text style={styles.headerTitle}>Notifications</Text>
+                        <View style={styles.placeholder} />
+                    </View>
+                </SafeAreaView>
+            </LinearGradient>
+            <FlatList
+                data={notifications}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => <NotificationItem item={item} styles={styles} C={C} />}
+                contentContainerStyle={styles.list}
+                showsVerticalScrollIndicator={false}
+            />
+        </View>
+    );
+};
+
+const createStyles = (C) => StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: C.bg,
+    },
+    header: {
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOpacity: 0.1,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+            },
+            android: { elevation: 4 },
+        }),
+    },
+    headerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        minHeight: 56,
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    headerTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#FFFFFF',
+        letterSpacing: -0.3,
+    },
+    placeholder: {
+        width: 40,
+    },
+    list: {
+        padding: 16,
+    },
+    item: {
+        flexDirection: 'row',
+        marginBottom: 20,
+        backgroundColor: C.card,
+        borderRadius: 12,
+        padding: 16,
+        gap: 14,
+        borderWidth: 1,
+        borderColor: C.line,
+    },
+    iconWrapper: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: C.brandSoft,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    title: {
+        fontWeight: 'bold',
+        fontSize: 15,
+        color: C.text,
+        marginBottom: 4,
+    },
+    message: {
+        color: C.sub,
+        fontSize: 14,
+    },
+    time: {
+        marginTop: 6,
+        fontSize: 12,
+        color: C.sub,
+    },
+});
+
+export default NotificationScreen;

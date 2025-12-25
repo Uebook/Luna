@@ -1,0 +1,25 @@
+{
+    "search_products": "Search products",
+    "shop_the_look": "Shop the Look",
+    "shop_look_title_default": "Evening Edit",
+    "products": "Products",
+    "no_products": "No products to show",
+    "filter": "Filter",
+    "selected_count": "{{count}} selected",
+    "sort_by": "Sort By",
+    "show_results": "Show Results",
+    "reset": "Reset",
+    "filter_by": "Filter By",
+    "apply": "APPLY",
+    "clear_all": "CLEAR ALL",
+    "search": "Search",
+    "tab_category": "Category",
+    "tab_brand": "Brand",
+    "tab_price": "Price",
+    "tab_discount": "Discount",
+    "sort": {
+        "popularity": "Popularity",
+        "price_low": "Price: Low to High",
+        "price_high": "Price: High to Low"
+    }
+}

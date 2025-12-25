@@ -1,0 +1,21 @@
+/**
+ * Performance utilities
+ * Disables console.log in production for better performance
+ */
+
+const isDev = __DEV__;
+
+// Disable console.log in production
+if (!isDev) {
+  const noop = () => {};
+  console.log = noop;
+  console.debug = noop;
+  console.info = noop;
+  // Keep console.warn and console.error for production debugging
+}
+
+export default {
+  isDev,
+};
+
+

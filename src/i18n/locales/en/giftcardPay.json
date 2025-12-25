@@ -1,0 +1,43 @@
+{
+    "title": "Review & Pay",
+    "giftCard": "Gift Card",
+    "details": "Details",
+    "amount": "Amount",
+    "recipient": "Recipient",
+    "message": "Message",
+    "contact": "Email / Phone",
+    "terms": "Terms & Conditions",
+    "viewTerms": "View full terms",
+    "viewTermsFullMsg": "Show full terms here.",
+    "paymentMethod": "Payment Method",
+    "providers": {
+        "apple": "Apple Pay",
+        "google": "Google Pay",
+        "wallet": "UPI / Wallet"
+    },
+    "cardForm": {
+        "number": "Card Number",
+        "expiry": "Expiry (MM/YY)",
+        "cvv": "CVV",
+        "name": "Name on Card",
+        "ph": {
+            "number": "1234 5678 9012 3456",
+            "expiry": "08/28",
+            "cvv": "***",
+            "name": "Full name"
+        }
+    },
+    "actions": {
+        "edit": "Edit Details",
+        "complete": "Complete Purchase"
+    },
+    "errors": {
+        "invalid": "Invalid",
+        "cardNumber": "Enter a valid card number.",
+        "expiry": "Expiry must be MM/YY.",
+        "cvv": "Enter a valid CVV.",
+        "name": "Enter the name on card."
+    },
+    "demoPayment": "Demo action — integrate your processor here.",
+    "currency": "INR"
+}

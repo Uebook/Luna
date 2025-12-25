@@ -1,0 +1,63 @@
+{
+    "membership": "Membership",
+    "current": "Current",
+    "eligibility": "Eligibility",
+    "benefits": "Benefits",
+    "spend": "Spend",
+    "purchases": "Purchases",
+    "referrals": "Referrals",
+    "orders": "Orders",
+    "currentTier": "Current tier",
+    "ytdSpend": "YTD Spend",
+    "subscribe": "Subscribe",
+    "termsLine": "By subscribing you agree to Luna’s Membership Terms & Conditions.",
+    "per": {
+        "month": "mo",
+        "year": "yr"
+    },
+    "confirm": {
+        "title": "Confirm Subscription",
+        "plan": "Plan",
+        "tier": "Tier",
+        "activate": "Activate",
+        "active": "Subscription active"
+    },
+    "tiers": {
+        "bronze": {
+            "name": "Bronze Member",
+            "b1": "5% off selected items",
+            "b2": "Early access to seasonal sales",
+            "b3": "Birthday discount (5% on one item)"
+        },
+        "silver": {
+            "name": "Silver Member",
+            "b1": "15–20% off all items",
+            "b2": "Free express shipping",
+            "b3": "Early access to limited collections",
+            "b4": "VIP event invitations",
+            "b5": "Priority customer support"
+        },
+        "gold": {
+            "name": "Gold Member",
+            "b1": "20–25% off all items",
+            "b2": "Free same-day shipping (select cities)",
+            "b3": "Private sale previews",
+            "b4": "Extended returns",
+            "b5": "Dedicated stylist chat"
+        },
+        "platinum": {
+            "name": "Platinum Member",
+            "b1": "25–30% off all items",
+            "b2": "Free same-day + priority handling",
+            "b3": "First access to drops",
+            "b4": "Invites to VIP/brand events",
+            "b5": "Priority concierge support"
+        }
+    },
+    "plans": {
+        "monthly": "Monthly",
+        "monthlyNote": "Cancel anytime",
+        "yearly": "Yearly",
+        "yearlyNote": "2 months free"
+    }
+}

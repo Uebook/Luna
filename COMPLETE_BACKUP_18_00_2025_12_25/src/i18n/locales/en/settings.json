@@ -1,0 +1,98 @@
+{
+    "actions": {
+        "cancel": "Cancel",
+        "edit": "Edit"
+    },
+    "common": {
+        "select": "Select"
+    },
+    "confirm": {
+        "logout": {
+            "title": "You are going to log out",
+            "subtitle": "You can sign in again anytime.",
+            "cta": "Logout",
+            "confirm": "Confirm"
+        },
+        "delete": {
+            "title": "You are going to delete your account",
+            "subtitle": "You won't be able to restore your data",
+            "cta": "Delete"
+        }
+    },
+    "profile": {
+        "progressHint": "Complete your profile to personalize your experience!"
+    },
+    "tiles": {
+        "history": {
+            "title": "History",
+            "subtitle": "Manage & track"
+        },
+        "activity": {
+            "title": "My Activity",
+            "subtitle": "Spend Analyzer"
+        },
+        "rewards": {
+            "title": "Your Rewards",
+            "subtitle": "{{amount}}"
+        },
+        "wishlist": {
+            "title": "Wishlist",
+            "subtitle": "{{count}} saved items"
+        }
+    },
+    "sections": {
+        "personal": "Personal",
+        "shop": "Shop",
+        "account": "Account"
+    },
+    "rows": {
+        "shippingAddress": "Shipping Address",
+        "voucher": "VoucherScreen",
+        "giftCard": "Gift Card",
+        "customerCare": "Customer Care",
+        "membership": "Membership",
+        "toReceive": "To Receive",
+        "paymentMethods": "Payment methods",
+        "contactPreference": "Contact Preference",
+        "country": "Country",
+        "currency": "Currency",
+        "mySize": "My Size",
+        "language": "Language",
+        "terms": "Terms and Conditions",
+        "about": "About Luna",
+        "privacy": "Privacy Policy",
+        "refund": "Refund Policy",
+        "logout": "Logout",
+        "deleteAccount": "Delete My Account"
+    },
+    "help": {
+        "needHelp": "Need Help?"
+    },
+    "footer": {
+        "version": "Version {{version}} • {{month}}, {{year}}"
+    },
+    "profile": {
+        "title": "Profile",
+        "photo_permission": "Photo Permission",
+        "photo_permission_message": "Allow access to set your profile picture.",
+        "ok": "OK",
+        "save": "Save",
+        "cancel": "Cancel",
+        "update": "Update",
+        "name": "Name",
+        "email": "Email",
+        "phone": "Phone",
+        "gender": "Gender",
+        "birthday": "Birthday",
+        "country": "Country",
+        "photo": "Photo",
+        "error": "Error",
+        "success": "Success",
+        "failed": "Failed",
+        "updated_success": "Profile updated successfully!",
+        "update_failed": "Profile update failed.",
+        "network_error": "Network error. Please try again.",
+        "user_id_not_found": "User ID not found. Please login again.",
+        "fix_fields": "Please fix the highlighted fields."
+    }
+}

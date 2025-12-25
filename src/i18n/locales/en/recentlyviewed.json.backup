@@ -1,0 +1,25 @@
+{
+    "title": "Recently Viewed",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "all": "All",
+    "viewed": "Viewed",
+    "items": "items",
+    "item": "item",
+    "viewed_today": "viewed today",
+    "viewed_yesterday": "viewed yesterday",
+    "viewed_on": "viewed on",
+    "in_total": "in total",
+    "view": "View",
+    "loading": "Loading recently viewed...",
+    "empty_all": "No recently viewed items",
+    "empty_all_subtitle": "Products you view will appear here",
+    "empty_today": "No items viewed today",
+    "empty_today_subtitle": "Products viewed today will appear here",
+    "empty_yesterday": "No items viewed yesterday",
+    "empty_yesterday_subtitle": "Products viewed yesterday will appear here",
+    "empty_custom": "No items viewed on {{date}}",
+    "empty_custom_subtitle": "No products were viewed on this date",
+    "error_loading": "Failed to load recently viewed items. Please check your connection and try again."
+}
+

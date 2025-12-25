@@ -1,0 +1,15 @@
+{
+    "title": "My Activity",
+    "loading": "Loading",
+    "total": "Total",
+    "ordered": "Ordered",
+    "received": "Received",
+    "toReceive": "To Receive",
+    "orderHistory": "Order History",
+    "categories": {
+        "clothing": "Clothing",
+        "lingerie": "Lingerie",
+        "shoes": "Shoes",
+        "bags": "Bags"
+    }
+}

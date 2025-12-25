@@ -1,0 +1,24 @@
+{
+    "title": "سجل الطلبات",
+    "filter": {
+        "status": "تصفية حسب الحالة"
+    },
+    "status": {
+        "all": "الكل",
+        "delivered": "تم التسليم",
+        "processing": "قيد المعالجة"
+    },
+    "order": "الطلب",
+    "review": "تقييم",
+    "view": "عرض",
+    "leaveReview": "اترك تقييماً",
+    "yourRating": "تقييمك",
+    "comment": "تعليق",
+    "commentPlaceholder": "أخبرنا عن تجربتك...",
+    "addPhotos": "إضافة صور",
+    "takePhoto": "التقاط صورة",
+    "photoLimit": "يمكنك إضافة حتى {{count}} صور.",
+    "submit": "إرسال",
+    "done": "تم!",
+    "thanks": "شكراً لملاحظاتك."
+}

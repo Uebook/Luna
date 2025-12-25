@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
     View, Text, StyleSheet, Image, TouchableOpacity, FlatList, TextInput, ScrollView, KeyboardAvoidingView, Platform
 } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 const orders = [
     {

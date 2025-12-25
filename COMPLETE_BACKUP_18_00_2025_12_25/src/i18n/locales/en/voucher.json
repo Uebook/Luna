@@ -1,0 +1,17 @@
+{
+    "title": "Vouchers",
+    "tabs": {
+        "active": "Active Rewards",
+        "expired": "Expired Rewards",
+        "progress": "Progress"
+    },
+    "voucherLabel": "Voucher",
+    "collected": "Collected",
+    "expired": "Expired",
+    "spin": "Spin",
+    "spinTitle": "Spin for your LUNA CLUB offer!",
+    "close": "Close",
+    "congrats": "Congratulations!",
+    "youGot": "You got:",
+    "great": "Great"
+}

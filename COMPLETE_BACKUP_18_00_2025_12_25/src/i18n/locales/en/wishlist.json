@@ -1,0 +1,26 @@
+{
+    "common": {
+        "back": "Back",
+        "seeAll": "See all"
+    },
+    "wishlist": {
+        "title": "Wishlist",
+        "recentlyViewed": "Recently viewed",
+        "chips": {
+            "all": "All",
+            "trending": "Trending",
+            "az": "A–Z",
+            "newest": "Newest"
+        },
+        "actions": {
+            "moveToBag": "Move to bag"
+        },
+        "empty": {
+            "title": "Your wishlist is empty",
+            "subtitle": "Browse and add items you like"
+        },
+        "a11y": {
+            "removeItem": "Remove from wishlist"
+        }
+    }
+}

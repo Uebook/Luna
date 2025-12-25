@@ -1,0 +1,46 @@
+import React from 'react';
+import {
+    View,
+    StyleSheet,
+    SafeAreaView,
+} from 'react-native';
+import { useTheme } from '../context/ThemeContext';
+import { SkeletonScreen } from './SkeletonLoader';
+
+const LoadingScreen = ({ type = 'list', ...props }) => {
+    let theme;
+    try {
+        const themeContext = useTheme();
+        theme = themeContext?.theme;
+    } catch (e) {
+        // Fallback theme if context fails
+        theme = {
+            p1: '#5C42C7',
+            p2: '#4B36A6',
+            bg: '#FCFBFF',
+            white: '#FFFFFF',
+        };
+    }
+
+    return (
+        <View style={styles.container}>
+            <SafeAreaView style={styles.safeArea}>
+                <SkeletonScreen type={type} {...props} />
+            </SafeAreaView>
+        </View>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    gradient: {
+        flex: 1,
+    },
+    safeArea: {
+        flex: 1,
+    },
+});
+
+export default LoadingScreen;

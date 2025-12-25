@@ -1,0 +1,25 @@
+{
+    "search_products": "ابحث عن المنتجات",
+    "shop_the_look": "تسوّق الإطلالة",
+    "shop_look_title_default": "إطلالة مسائية",
+    "products": "المنتجات",
+    "no_products": "لا توجد منتجات للعرض",
+    "filter": "تصفية",
+    "selected_count": "{{count}} محدد",
+    "sort_by": "فرز حسب",
+    "show_results": "عرض النتائج",
+    "reset": "إعادة ضبط",
+    "filter_by": "تصفية حسب",
+    "apply": "تطبيق",
+    "clear_all": "مسح الكل",
+    "search": "بحث",
+    "tab_category": "الفئة",
+    "tab_brand": "العلامة",
+    "tab_price": "السعر",
+    "tab_discount": "الخصم",
+    "sort": {
+        "popularity": "الأكثر شيوعًا",
+        "price_low": "السعر: الأقل أولاً",
+        "price_high": "السعر: الأعلى أولاً"
+    }
+}

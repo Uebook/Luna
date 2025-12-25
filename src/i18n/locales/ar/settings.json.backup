@@ -1,0 +1,98 @@
+{
+    "actions": {
+        "cancel": "إلغاء",
+        "edit": "تعديل"
+    },
+    "common": {
+        "select": "اختيار"
+    },
+    "confirm": {
+        "logout": {
+            "title": "أنت على وشك تسجيل الخروج",
+            "subtitle": "يمكنك تسجيل الدخول في أي وقت.",
+            "cta": "تسجيل الخروج",
+            "confirm": "تأكيد"
+        },
+        "delete": {
+            "title": "أنت على وشك حذف حسابك",
+            "subtitle": "لن تتمكن من استعادة بياناتك",
+            "cta": "حذف"
+        }
+    },
+    "profile": {
+        "progressHint": "أكمل ملفك الشخصي لتخصيص تجربتك!"
+    },
+    "tiles": {
+        "history": {
+            "title": "السجل",
+            "subtitle": "إدارة وتتبع"
+        },
+        "activity": {
+            "title": "نشاطي",
+            "subtitle": "تحليل الإنفاق"
+        },
+        "rewards": {
+            "title": "مكافآتك",
+            "subtitle": "{{amount}}"
+        },
+        "wishlist": {
+            "title": "المفضلة",
+            "subtitle": "{{count}} عناصر محفوظة"
+        }
+    },
+    "sections": {
+        "personal": "شخصي",
+        "shop": "التسوق",
+        "account": "الحساب"
+    },
+    "rows": {
+        "shippingAddress": "عنوان الشحن",
+        "voucher": "قسائم الشراء",
+        "giftCard": "بطاقة هدية",
+        "customerCare": "خدمة العملاء",
+        "membership": "العضوية",
+        "toReceive": "قيد التسليم",
+        "paymentMethods": "طرق الدفع",
+        "contactPreference": "تفضيلات التواصل",
+        "country": "الدولة",
+        "currency": "العملة",
+        "mySize": "مقاسي",
+        "language": "اللغة",
+        "terms": "الشروط والأحكام",
+        "about": "حول لونا",
+        "privacy": "سياسة الخصوصية",
+        "refund": "سياسة الاسترجاع",
+        "logout": "تسجيل الخروج",
+        "deleteAccount": "حذف حسابي"
+    },
+    "help": {
+        "needHelp": "بحاجة إلى مساعدة؟"
+    },
+    "footer": {
+        "version": "الإصدار {{version}} • {{month}}، {{year}}"
+    },
+    "profile": {
+        "title": "الملف الشخصي",
+        "photo_permission": "إذن الصورة",
+        "photo_permission_message": "السماح بالوصول لتعيين صورة ملفك الشخصي.",
+        "ok": "موافق",
+        "save": "حفظ",
+        "cancel": "إلغاء",
+        "update": "تحديث",
+        "name": "الاسم",
+        "email": "البريد الإلكتروني",
+        "phone": "الهاتف",
+        "gender": "الجنس",
+        "birthday": "تاريخ الميلاد",
+        "country": "الدولة",
+        "photo": "الصورة",
+        "error": "خطأ",
+        "success": "نجح",
+        "failed": "فشل",
+        "updated_success": "تم تحديث الملف الشخصي بنجاح!",
+        "update_failed": "فشل تحديث الملف الشخصي.",
+        "network_error": "خطأ في الشبكة. يرجى المحاولة مرة أخرى.",
+        "user_id_not_found": "لم يتم العثور على معرف المستخدم. يرجى تسجيل الدخول مرة أخرى.",
+        "fix_fields": "يرجى إصلاح الحقول المميزة."
+    }
+}

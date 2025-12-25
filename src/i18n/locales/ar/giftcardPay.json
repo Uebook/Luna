@@ -1,0 +1,43 @@
+{
+    "title": "مراجعة والدفع",
+    "giftCard": "بطاقة هدية",
+    "details": "التفاصيل",
+    "amount": "المبلغ",
+    "recipient": "المستلم",
+    "message": "الرسالة",
+    "contact": "البريد الإلكتروني / الهاتف",
+    "terms": "الشروط والأحكام",
+    "viewTerms": "عرض الشروط كاملة",
+    "viewTermsFullMsg": "اعرض الشروط الكاملة هنا.",
+    "paymentMethod": "طريقة الدفع",
+    "providers": {
+        "apple": "Apple Pay",
+        "google": "Google Pay",
+        "wallet": "المحافظ / UPI"
+    },
+    "cardForm": {
+        "number": "رقم البطاقة",
+        "expiry": "تاريخ الانتهاء (شهر/سنة)",
+        "cvv": "CVV",
+        "name": "الاسم على البطاقة",
+        "ph": {
+            "number": "1234 5678 9012 3456",
+            "expiry": "08/28",
+            "cvv": "***",
+            "name": "الاسم الكامل"
+        }
+    },
+    "actions": {
+        "edit": "تعديل التفاصيل",
+        "complete": "إتمام الشراء"
+    },
+    "errors": {
+        "invalid": "غير صالح",
+        "cardNumber": "أدخل رقم بطاقة صالحاً.",
+        "expiry": "صيغة الانتهاء يجب أن تكون MM/YY.",
+        "cvv": "أدخل رمز CVV صالحاً.",
+        "name": "أدخل الاسم على البطاقة."
+    },
+    "demoPayment": "إجراء تجريبي — اربط بوابة الدفع هنا.",
+    "currency": "INR"
+}

@@ -1,0 +1,23 @@
+{
+    "title": "Gift Card Sent",
+    "brand": "Luna Boutique",
+    "brandShort": "Luna",
+    "headline": "Gift Card Sent!",
+    "subtitle": "Congratulations! Your gift card has been successfully delivered.",
+    "status": {
+        "label": "Delivery Status: Confirmed",
+        "track": "Track Delivery"
+    },
+    "actions": {
+        "share": "Share",
+        "receipt": "Receipt",
+        "sendAnother": "Send Another"
+    },
+    "shareMessage": "Luna Gift Card sent to {{name}} for {{amount}}.",
+    "recipientFallback": "recipient",
+    "receiptTitle": "Receipt",
+    "receiptBody": "Order {{orderId}}\nAmount: {{amount}}",
+    "trackTitle": "Track",
+    "trackMsg": "Open your tracking view.",
+    "currency": "INR"
+}

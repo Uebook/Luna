@@ -1,0 +1,23 @@
+{
+    "title": "تم إرسال بطاقة الهدية",
+    "brand": "متجر لونا",
+    "brandShort": "لونا",
+    "headline": "تم إرسال بطاقة الهدية!",
+    "subtitle": "تهانينا! تم تسليم بطاقة هديتك بنجاح.",
+    "status": {
+        "label": "حالة التوصيل: تم التأكيد",
+        "track": "تتبّع التوصيل"
+    },
+    "actions": {
+        "share": "مشاركة",
+        "receipt": "الإيصال",
+        "sendAnother": "إرسال أخرى"
+    },
+    "shareMessage": "تم إرسال بطاقة هدية لونا إلى {{name}} بقيمة {{amount}}.",
+    "recipientFallback": "المستلم",
+    "receiptTitle": "الإيصال",
+    "receiptBody": "رقم الطلب {{orderId}}\nالمبلغ: {{amount}}",
+    "trackTitle": "تتبّع",
+    "trackMsg": "افتح شاشة التتبّع.",
+    "currency": "INR"
+}

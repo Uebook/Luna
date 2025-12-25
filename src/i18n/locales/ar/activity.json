@@ -1,0 +1,15 @@
+{
+    "title": "نشاطي",
+    "loading": "جارٍ التحميل",
+    "total": "الإجمالي",
+    "ordered": "تم الطلب",
+    "received": "تم الاستلام",
+    "toReceive": "قيد الاستلام",
+    "orderHistory": "سجل الطلبات",
+    "categories": {
+        "clothing": "ملابس",
+        "lingerie": "لانجري",
+        "shoes": "أحذية",
+        "bags": "حقائب"
+    }
+}

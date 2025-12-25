@@ -1,0 +1,91 @@
+{
+    "titles": {
+        "contactPreferences": "Contact Preferences"
+    },
+    "hero": {
+        "title": "How you hear from Luna",
+        "sub": "Manage marketing and service notifications for email, SMS, and WhatsApp.",
+        "allOff": "All marketing off"
+    },
+    "sections": {
+        "newMsg": {
+            "title": "New Message Notifications",
+            "row": {
+                "title": "Enable order status & critical alerts",
+                "sub": "We’ll notify you about orders, returns, and important reminders."
+            }
+        },
+        "email": {
+            "title": "Email",
+            "identity": "Subscribable Account",
+            "ownerOnly": "owner-only access",
+            "toggle": {
+                "title": "Marketing & promotional emails",
+                "sub": "Exclusive offers, launches, and coupon reminders."
+            }
+        },
+        "sms": {
+            "title": "SMS",
+            "identity": "Subscribable Account",
+            "toggle": {
+                "title": "Promotional SMS",
+                "sub": "Message & data rates may apply. Reply STOP to unsubscribe."
+            }
+        },
+        "wa": {
+            "title": "WhatsApp",
+            "identity": "Linked WhatsApp",
+            "toggle": {
+                "title": "Promotional messages on WhatsApp",
+                "sub": "Consent not required for purchase. Unsubscribe anytime via WhatsApp."
+            }
+        }
+    },
+    "chips": {
+        "newMessage": "New message",
+        "emailPromos": "Email promos",
+        "smsPromos": "SMS promos",
+        "waPromos": "WhatsApp promos"
+    },
+    "legal": {
+        "prefix": "Your data is protected. See our",
+        "privacy": "Privacy Policy",
+        "help": "Need help? Tap",
+        "here": "here"
+    },
+    "modal": {
+        "titles": {
+            "email": "Update Email",
+            "sms": "Update SMS Number",
+            "whatsapp": "Update WhatsApp Number"
+        },
+        "hints": {
+            "email": "We’ll use this email for account updates and (if enabled) promotions.",
+            "phone": "Use your active number with country code (e.g., +91...)."
+        }
+    },
+    "placeholders": {
+        "email": "name@example.com",
+        "phoneExample": "+91 9876543210"
+    },
+    "errors": {
+        "invalidEmail": "Enter a valid email address.",
+        "invalidPhone": "Enter a valid phone number (8–15 digits)."
+    },
+    "alerts": {
+        "savedTitle": "Saved",
+        "savedBody": "Your contact preferences have been updated."
+    },
+    "common": {
+        "on": "ON",
+        "off": "OFF",
+        "change": "Change",
+        "cancel": "Cancel",
+        "save": "Save",
+        "savePrefs": "Save Preferences"
+    },
+    "a11y": {
+        "back": "Go back",
+        "close": "Close"
+    }
+}

@@ -1,0 +1,11 @@
+{
+    "title": "Language",
+    "english": "English",
+    "arabic": "Arabic",
+    "saved": "Language updated successfully!",
+    "saved_local": "Language saved locally",
+    "error_saving": "Failed to change language",
+    "updating": "Updating language...",
+    "logged_in_as": "Updating for user:"
+}
+

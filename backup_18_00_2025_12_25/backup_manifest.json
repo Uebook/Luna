@@ -1,0 +1,82 @@
+{
+  "backup_time": "2025-12-25T20:00:38.911554",
+  "target_time": "2025-12-25T18:00:00",
+  "total_files": 15,
+  "files": [
+    {
+      "file": "adminpanel/luna-api/app/Http/Controllers/Api/GiftCardController.php",
+      "time": "18:11:11",
+      "diff": 11
+    },
+    {
+      "file": "adminpanel/luna-api/app/Http/Controllers/Api/OrderController.php",
+      "time": "17:16:50",
+      "diff": 43
+    },
+    {
+      "file": "adminpanel/luna-api/app/Http/Controllers/Api/WalletController.php",
+      "time": "17:18:20",
+      "diff": 41
+    },
+    {
+      "file": "adminpanel/project/app/Helpers/PriceHelper.php",
+      "time": "18:32:39",
+      "diff": 32
+    },
+    {
+      "file": "adminpanel/project/app/Http/Controllers/Admin/OrderController.php",
+      "time": "18:08:37",
+      "diff": 8
+    },
+    {
+      "file": "adminpanel/project/resources/views/admin/giftcard/history-details.blade.php",
+      "time": "17:09:57",
+      "diff": 50
+    },
+    {
+      "file": "adminpanel/project/resources/views/admin/order/details.blade.php",
+      "time": "18:08:09",
+      "diff": 8
+    },
+    {
+      "file": "src/screen/CheckoutScreen.js",
+      "time": "17:53:10",
+      "diff": 6
+    },
+    {
+      "file": "src/screen/GiftCardReceivedScreen.js",
+      "time": "17:33:55",
+      "diff": 26
+    },
+    {
+      "file": "src/screen/HistoryScreen.js",
+      "time": "17:59:56",
+      "diff": 0
+    },
+    {
+      "file": "src/screen/OrderDetailsScreen.js",
+      "time": "18:02:33",
+      "diff": 2
+    },
+    {
+      "file": "src/screen/ProductDetailScreen.js",
+      "time": "17:47:45",
+      "diff": 12
+    },
+    {
+      "file": "src/screen/ToReceiveOrdersScreen.js",
+      "time": "18:57:07",
+      "diff": 57
+    },
+    {
+      "file": "src/screen/VoucherScreen.js",
+      "time": "18:50:00",
+      "diff": 50
+    },
+    {
+      "file": "src/screen/WalletScreen.js",
+      "time": "17:01:55",
+      "diff": 58
+    }
+  ]
+}

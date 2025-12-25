@@ -1,0 +1,26 @@
+{
+    "common": {
+        "back": "رجوع",
+        "seeAll": "عرض الكل"
+    },
+    "wishlist": {
+        "title": "المفضلة",
+        "recentlyViewed": "شوهد مؤخراً",
+        "chips": {
+            "all": "الكل",
+            "trending": "الرائج",
+            "az": "أ–ي",
+            "newest": "الأحدث"
+        },
+        "actions": {
+            "moveToBag": "نقل إلى الحقيبة"
+        },
+        "empty": {
+            "title": "قائمة المفضلة فارغة",
+            "subtitle": "تصفّح وأضِف العناصر التي تعجبك"
+        },
+        "a11y": {
+            "removeItem": "إزالة من المفضلة"
+        }
+    }
+}

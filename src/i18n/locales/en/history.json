@@ -1,0 +1,24 @@
+{
+    "title": "Order history",
+    "filter": {
+        "status": "Filter by status"
+    },
+    "status": {
+        "all": "All",
+        "delivered": "Delivered",
+        "processing": "Processing"
+    },
+    "order": "Order",
+    "review": "Review",
+    "view": "View",
+    "leaveReview": "Leave a review",
+    "yourRating": "Your rating",
+    "comment": "Comment",
+    "commentPlaceholder": "Tell us about your experience...",
+    "addPhotos": "Add photos",
+    "takePhoto": "Take photo",
+    "photoLimit": "You can add up to {{count}} photos.",
+    "submit": "Submit",
+    "done": "Done!",
+    "thanks": "Thanks for your feedback."
+}

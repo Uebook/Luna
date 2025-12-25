@@ -1,0 +1,11 @@
+{
+    "header": "Celebrities",
+    "search_placeholder": "Search celebrities",
+    "chip_all": "All",
+    "chip_trending": "Trending",
+    "chip_az": "A–Z",
+    "chip_new": "New",
+    "favourite": "Add to favorites",
+    "unfavourite": "Remove from favorites",
+    "no_matches": "No matches found"
+}

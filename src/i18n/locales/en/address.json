@@ -1,0 +1,33 @@
+{
+    "title": "Shipping Addresses",
+    "subtitle": "Manage your saved addresses below",
+    "addNew": "Add New Address",
+    "edit": "Edit Address",
+    "new": "New Address",
+    "editBtn": "Edit",
+    "deleteBtn": "Delete",
+    "default": "Default",
+    "labels": "Select a label",
+    "home": "Home",
+    "work": "Work",
+    "other": "Other",
+    "fullName": "Full Name",
+    "phone": "Phone Number",
+    "country": "Country",
+    "city": "City",
+    "postcode": "Postcode",
+    "bhRoad": "Road",
+    "bhBlock": "Block",
+    "bhHouse": "House No.",
+    "pinMap": "Pin on Map",
+    "useLocation": "Use this Location",
+    "setDefault": "Set as Default",
+    "save": "Save Address",
+    "saveChanges": "Save Changes",
+    "close": "Close",
+    "errors": {
+        "required": "All required fields must be filled",
+        "phoneBH": "Phone must be valid (+973 ######## or ########)",
+        "bhFields": "Road, Block and House No. are required"
+    }
+}

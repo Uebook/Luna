@@ -1,0 +1,17 @@
+{
+    "title": "القسائم",
+    "tabs": {
+        "active": "مكافآت نشطة",
+        "expired": "مكافآت منتهية",
+        "progress": "التقدّم"
+    },
+    "voucherLabel": "قسيمة",
+    "collected": "تم التحصيل",
+    "expired": "منتهية",
+    "spin": "دوّر",
+    "spinTitle": "دوّر لتحصل على عرض LUNA CLUB!",
+    "close": "إغلاق",
+    "congrats": "تهانينا!",
+    "youGot": "لقد حصلت على:",
+    "great": "رائع"
+}

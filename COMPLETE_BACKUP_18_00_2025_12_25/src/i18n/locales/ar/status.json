@@ -1,0 +1,7 @@
+{
+    "all": "All",
+    "delivered": "Delivered",
+    "processing": "Processing",
+    "packed": "Packed",
+    "shipped": "Shipped"
+}

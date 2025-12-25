@@ -1,0 +1,740 @@
+// src/screens/VoucherScreen.js
+import React, { useMemo, useRef, useState } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    SafeAreaView,
+    ScrollView,
+    TouchableOpacity,
+    FlatList,
+    Animated,
+    Easing,
+    Dimensions,
+    useWindowDimensions,
+    Platform,
+    StatusBar,
+} from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { BlurView } from '@react-native-community/blur';
+import Svg, { G, Path, Text as SvgText, Defs, LinearGradient as SvgLinearGradient, Stop, Circle } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
+import { useTheme } from '../context/ThemeContext';
+import StandardHeader from '../components/StandardHeader';
+import { apiHelpers } from '../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
+
+// Safe area helper
+const getSafeTop = () => {
+    const { width: W, height: H } = Dimensions.get('window');
+    const isIOS = Platform.OS === 'ios';
+    const hasNotch = isIOS && Math.max(W, H) >= 812;
+    if (!isIOS) return StatusBar.currentHeight || 0;
+    return hasNotch ? 44 : 20;
+};
+
+/* ---------------- helpers ---------------- */
+const deg2rad = (deg) => (deg * Math.PI) / 180;
+const arcPath = (cx, cy, r, startDeg, endDeg) => {
+    const start = { x: cx + r * Math.cos(deg2rad(startDeg)), y: cy + r * Math.sin(deg2rad(startDeg)) };
+    const end = { x: cx + r * Math.cos(deg2rad(endDeg)), y: cy + r * Math.sin(deg2rad(endDeg)) };
+    const largeArc = endDeg - startDeg <= 180 ? 0 : 1;
+    return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y} Z`;
+};
+
+/* ---------------- ticket card ---------------- */
+const VoucherCard = ({ item, t, isRTL, THEME, isDark, styles, userId, onCollect }) => {
+    if (!styles) {
+        console.warn('VoucherCard: styles prop is missing');
+        return null;
+    }
+    const isExpired = item.status === 'expired';
+
+    // Header colors based on highlight status
+    const headerBgColor = isExpired
+        ? (isDark ? '#E5E7EB' : '#F3F4F6')
+        : item.highlight
+            ? (isDark ? '#FEE2E2' : '#FFF1F2') // Pink/red for highlighted
+            : (isDark ? '#DBEAFE' : '#EFF6FF'); // Blue for normal
+
+    const headerTextColor = isExpired
+        ? THEME.sub
+        : item.highlight
+            ? (isDark ? '#DC2626' : '#E11D48') // Darker pink/red
+            : (isDark ? '#1E40AF' : '#2563EB'); // Darker blue
+
+    const dashedColor = isExpired
+        ? THEME.line
+        : item.highlight
+            ? (isDark ? '#FCA5A5' : '#FEC8C8')
+            : (isDark ? '#93C5FD' : '#BFDBFE');
+
+    return (
+        <View style={{ marginBottom: 20, paddingHorizontal: 16 }}>
+            <View style={{ position: 'relative' }}>
+                {/* Notches positioned outside the card to create cutout effect */}
+                <View style={[styles.notchLeft, { backgroundColor: THEME.bg, borderColor: dashedColor }]} />
+                <View style={[styles.notchRight, { backgroundColor: THEME.bg, borderColor: dashedColor }]} />
+
+                <View style={[styles.voucherWrapper, { borderRadius: 12, overflow: 'hidden' }]}>
+                    {/* Header Section with colored background */}
+                    <View style={[styles.voucherHeader, { backgroundColor: headerBgColor, borderTopLeftRadius: 12, borderTopRightRadius: 12 }]}>
+                        <Text style={[styles.voucherLabel, { color: headerTextColor }]}>
+                            {t('voucherLabel', { defaultValue: 'Voucher' })}
+                        </Text>
+                        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
+                            {item.daysLeft && item.status === 'active' && (
+                                <Text style={[styles.daysLeft, { color: headerTextColor }]}>
+                                    {item.daysLeft}
+                                </Text>
+                            )}
+                            {item.status === 'active' && (
+                                <View style={[styles.validityPill, { backgroundColor: headerTextColor }]}>
+                                    <Text style={styles.validityPillText}>{item.expiry}</Text>
+                                </View>
+                            )}
+                            {item.status === 'expired' && (
+                                <Text style={[styles.expiry, { color: THEME.sub }]}>{item.expiry}</Text>
+                            )}
+                        </View>
+                    </View>
+
+                    {/* Dashed Line Separator */}
+                    <View style={styles.dashedLineContainer}>
+                        <View style={[styles.dashedLine, { borderColor: dashedColor }]} />
+                    </View>
+
+                    {/* Content Section with white background */}
+                    <View style={[styles.contentRow, isRTL && { flexDirection: 'row-reverse' }, { borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }]}>
+                        {/* Icon on the left */}
+                        <View style={styles.iconContainer}>
+                            <Icon
+                                name={item.icon || 'gift-outline'}
+                                size={28}
+                                color={isExpired ? THEME.sub : THEME.p1}
+                            />
+                        </View>
+
+                        {/* Title and description in the middle */}
+                        <View style={{ flex: 1, marginLeft: 12, marginRight: 12 }}>
+                            <Text style={[styles.title, isRTL && { textAlign: 'right' }]}>{item.title}</Text>
+                            <Text style={[styles.desc, isRTL && { textAlign: 'right' }]}>{item.description}</Text>
+                        </View>
+
+                        {/* Collected button on the right */}
+                        <TouchableOpacity
+                            style={[
+                                styles.collectBtn,
+                                (isExpired || item.collected) && { backgroundColor: isDark ? THEME.line : '#EFF1F4' }
+                            ]}
+                            disabled={isExpired || item.collected}
+                            activeOpacity={0.8}
+                            onPress={() => onCollect && onCollect(item.id)}
+                        >
+                            <Text style={[styles.collectText, (isExpired || item.collected) && { color: THEME.sub }]}>
+                                {isExpired ? t('expired', { defaultValue: 'Expired' }) :
+                                    item.collected ? t('collected', { defaultValue: 'Collected' }) :
+                                        t('collect', { defaultValue: 'Collect' })}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </View>
+    );
+};
+
+/* ---------------- spin wheel modal ---------------- */
+const WheelModal = ({ visible, onClose, onWon, t }) => {
+    const { width } = useWindowDimensions();
+    const isRTL = i18n?.dir?.() === 'rtl';
+    const rotate = useRef(new Animated.Value(0)).current;
+    const [spinning, setSpinning] = useState(false);
+
+    const wheelSize = Math.min(Math.max(width - 64, 260), 360);
+    const r = wheelSize / 2;
+    const hubR = wheelSize * 0.2;
+
+    // labels are fine in EN; you can localize these too if desired
+    const labels = ['2% off', '5% off', '10% off', '15% off', '20% off', 'Silver', 'Diamond', 'Try Again'];
+    const N = labels.length;
+    const SLICE = 360 / N;
+    const COLORS = ['#14B866', '#0FA968', '#17C964', '#0E9F6E'];
+
+    const spin = () => {
+        if (spinning) return;
+        setSpinning(true);
+        const rounds = Math.floor(Math.random() * 2) + 4; // 4–5 turns
+        const stopAt = Math.random() * 360;
+        rotate.setValue(0);
+        Animated.timing(rotate, {
+            toValue: rounds * 360 + stopAt,
+            duration: 4200,
+            easing: Easing.bezier(0.12, 0.6, 0.12, 1),
+            useNativeDriver: true,
+        }).start(() => {
+            const deg = stopAt % 360;
+            const shifted = (deg + 90) % 360; // pointer on RIGHT
+            const slot = Math.floor(((360 - shifted + SLICE / 2) % 360) / SLICE);
+            const prize = labels[slot];
+            setSpinning(false);
+            onWon && onWon(prize);
+        });
+    };
+
+    if (!visible) return null;
+
+    return (
+        <View style={styles.modalWrap}>
+            <BlurView style={styles.modalBackdrop} blurType="light" blurAmount={18} reducedTransparencyFallbackColor="rgba(0,0,0,0.55)" />
+            <View style={[styles.modalCard, { width: Math.min(420, width - 24) }]}>
+                <Text style={styles.spinTitle}>
+                    {t('spinTitle', { defaultValue: 'Spin for your LUNA CLUB offer!' })}
+                </Text>
+
+                <View style={{ alignItems: 'center', justifyContent: 'center', width: wheelSize, height: wheelSize, marginBottom: 16 }}>
+                    <Animated.View style={{ transform: [{ rotate: rotate.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }) }] }}>
+                        <Svg width={wheelSize} height={wheelSize}>
+                            <Defs>
+                                <SvgLinearGradient id="gloss" x1="50%" y1="0%" x2="50%" y2="100%">
+                                    <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.18" />
+                                    <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+                                </SvgLinearGradient>
+                            </Defs>
+
+                            <G>
+                                {Array.from({ length: N }).map((_, i) => {
+                                    const start = -90 + i * SLICE;
+                                    const end = start + SLICE;
+                                    const fill = COLORS[i % COLORS.length];
+                                    const mid = start + SLICE / 2;
+                                    const labelR = r * 0.62;
+
+                                    return (
+                                        <G key={i}>
+                                            <Path d={arcPath(r, r, r, start, end)} fill={fill} />
+                                            <Path d={`M ${r} ${r} L ${r + r * Math.cos(deg2rad(start))} ${r + r * Math.sin(deg2rad(start))}`} stroke="#FFFFFFAA" strokeWidth={1} />
+                                            <SvgText
+                                                x={r + labelR * Math.cos(deg2rad(mid))}
+                                                y={r + labelR * Math.sin(deg2rad(mid))}
+                                                fill="#ECFDF5"
+                                                fontSize={Math.max(11, Math.min(15, wheelSize * 0.05))}
+                                                fontWeight="900"
+                                                textAnchor="middle"
+                                                alignmentBaseline="middle"
+                                            >
+                                                {labels[i]}
+                                            </SvgText>
+                                        </G>
+                                    );
+                                })}
+                            </G>
+
+                            <Circle cx={r} cy={r} r={r} fill="url(#gloss)" />
+                            <Circle cx={r} cy={r} r={r - 2} stroke="#86EFAC" strokeWidth="2" fill="none" />
+                            <Circle cx={r} cy={r} r={r * 0.92} stroke="#D1FAE5" strokeWidth="2" fill="none" />
+                        </Svg>
+                    </Animated.View>
+
+                    {/* center button */}
+                    <TouchableOpacity
+                        onPress={spin}
+                        activeOpacity={0.9}
+                        disabled={spinning}
+                        style={[
+                            styles.centerBtn,
+                            { width: hubR * 2, height: hubR * 2, borderRadius: hubR, backgroundColor: spinning ? '#065F4633' : '#065F46' },
+                        ]}
+                    >
+                        <Text style={{ color: '#fff', fontWeight: '900', fontSize: Math.max(16, Math.min(22, hubR * 0.60)) }}>
+                            {spinning ? '...' : t('spin', { defaultValue: 'SPIN' })}
+                        </Text>
+                    </TouchableOpacity>
+
+                    {/* right pointer (kept on the right for both LTR/RTL for consistency) */}
+                    <View style={{ position: 'absolute', right: -8, top: '50%', marginTop: -16, alignItems: 'center' }}>
+                        <View style={[styles.pointerBall, styles.shadowSoft]} />
+                        <View style={{ width: 24, height: 8, backgroundColor: '#10B981', borderTopLeftRadius: 4, borderBottomLeftRadius: 4, marginRight: 12 }} />
+                        <View style={{ width: 0, height: 0, borderTopWidth: 10, borderBottomWidth: 10, borderLeftWidth: 12, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: '#10B981' }} />
+                    </View>
+                </View>
+
+                <TouchableOpacity onPress={onClose} style={{ marginTop: 8 }}>
+                    <Text style={{ color: '#8E9AAF', fontWeight: '700' }}>
+                        {t('close', { defaultValue: 'Close' })}
+                    </Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+};
+
+/* -------- result popup (blurred) -------- */
+const ResultPopup = ({ visible, prize, onClose, t }) => {
+    if (!visible) return null;
+    return (
+        <View style={styles.modalWrap}>
+            <BlurView style={styles.modalBackdrop} blurType="light" blurAmount={18} reducedTransparencyFallbackColor="rgba(0,0,0,0.55)" />
+            <View style={[styles.modalCard, { paddingVertical: 24, paddingHorizontal: 18 }]}>
+                <Text style={{ fontSize: 40, marginBottom: 8 }}>🎉</Text>
+                <Text style={{ fontSize: 18, fontWeight: '900', marginBottom: 4 }}>
+                    {t('congrats', { defaultValue: 'Congratulations!' })}
+                </Text>
+                <Text style={{ color: '#334155', marginBottom: 16 }}>
+                    {t('youGot', { defaultValue: 'You got:' })} <Text style={{ fontWeight: '800' }}>{prize}</Text>
+                </Text>
+
+                <TouchableOpacity onPress={onClose} activeOpacity={0.9} style={styles.primaryBtn}>
+                    <Text style={{ color: '#fff', fontWeight: '800' }}>{t('great', { defaultValue: 'Great' })}</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+};
+
+/* ---------------- screen ---------------- */
+const scrWidth = Dimensions.get('window').width;
+
+const VoucherScreen = ({ navigation }) => {
+    // Remove artificial loading delay for faster screen opening
+    const [loading, setLoading] = useState(true);
+    const [vouchers, setVouchers] = useState([]);
+    const [userId, setUserId] = useState(null);
+
+    const { theme, isDark } = useTheme();
+    
+    // Memoize THEME object to prevent unnecessary re-renders
+    const THEME = useMemo(() => ({
+        p1: theme.p1,
+        p2: theme.p2,
+        white: theme.white,
+        ink: theme.ink,
+        card: theme.card,
+        text: theme.text,
+        sub: theme.sub,
+        line: theme.line,
+        bg: theme.bg,
+    }), [theme.p1, theme.p2, theme.white, theme.ink, theme.card, theme.text, theme.sub, theme.line, theme.bg]);
+    
+    const gradientHeader = useMemo(() => [THEME.p2, THEME.p1, THEME.p1], [THEME.p2, THEME.p1]);
+    const styles = useMemo(() => createStyles(THEME, isDark), [THEME, isDark]);
+
+    // Load user ID from storage
+    React.useEffect(() => {
+        const loadUserId = async () => {
+            try {
+                const userData = await AsyncStorage.getItem('luna_user');
+                if (userData) {
+                    const parsed = JSON.parse(userData);
+                    const userId = parsed.user?.id || parsed.id;
+                    setUserId(userId);
+                } else {
+                    setLoading(false);
+                }
+            } catch (error) {
+                console.log('Error loading user ID:', error);
+                setLoading(false);
+            }
+        };
+        loadUserId();
+    }, []);
+
+    // Fetch vouchers from API
+    React.useEffect(() => {
+        const fetchVouchers = async () => {
+            if (!userId) {
+                return;
+            }
+
+            try {
+                setLoading(true);
+                const response = await apiHelpers.getUserVouchers(userId);
+
+                if (response.data.status && response.data.vouchers) {
+                    setVouchers(response.data.vouchers);
+                } else {
+                    setVouchers([]);
+                }
+            } catch (error) {
+                console.log('Error fetching vouchers:', error);
+                setVouchers([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchVouchers();
+    }, [userId]);
+    const { t } = useTranslation('voucher');
+    const isRTL = i18n?.dir?.() === 'rtl';
+
+    const [activeTab, setActiveTab] = useState('active'); // 'active' | 'expired' | 'progress'
+    const [showSpin, setShowSpin] = useState(false);
+    const [prize, setPrize] = useState(null);
+
+    const tabs = useMemo(
+        () => ([
+            { key: 'active', label: t('tabs.active', { defaultValue: 'Active Rewards' }) },
+            { key: 'expired', label: t('tabs.expired', { defaultValue: 'Expired Rewards' }) },
+            { key: 'progress', label: t('tabs.progress', { defaultValue: 'Progress' }) },
+        ]),
+        [t]
+    );
+
+    const listData = useMemo(() => {
+        if (activeTab === 'active') return vouchers.filter(v => v.status === 'active');
+        if (activeTab === 'expired') return vouchers.filter(v => v.status === 'expired');
+        return [];
+    }, [activeTab, vouchers]);
+
+    // Handle voucher collection
+    const handleCollectVoucher = async (couponId) => {
+        if (!userId) {
+            Alert.alert('Error', 'Please login to collect vouchers');
+            return;
+        }
+
+        try {
+            const response = await apiHelpers.collectVoucher(userId, couponId);
+            if (response.data.status) {
+                // Update local state
+                setVouchers(prevVouchers =>
+                    prevVouchers.map(v =>
+                        v.id === couponId ? { ...v, collected: 1, highlight: true } : v
+                    )
+                );
+                Alert.alert('Success', 'Voucher collected successfully!');
+            } else {
+                Alert.alert('Error', response.data.message || 'Failed to collect voucher');
+            }
+        } catch (error) {
+            console.log('Error collecting voucher:', error);
+            Alert.alert('Error', 'Failed to collect voucher. Please try again.');
+        }
+    };
+
+    // Only show loading state initially
+    if (loading && vouchers.length === 0 && !userId) {
+        return (
+            <View style={[styles.container, { writingDirection: isRTL ? 'rtl' : 'ltr' }]}>
+                <StandardHeader
+                    title={t('title', { defaultValue: 'Vouchers' })}
+                    navigation={navigation}
+                    showGradient={true}
+                />
+            </View>
+        );
+    }
+
+    return (
+        <View style={[styles.container, { writingDirection: isRTL ? 'rtl' : 'ltr' }]}>
+            {/* Standard Header */}
+            <StandardHeader
+                title={t('title', { defaultValue: 'Vouchers' })}
+                navigation={navigation}
+                showGradient={true}
+            />
+
+            {/* Tabs (horizontal) */}
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={[styles.tabs, isRTL && { flexDirection: 'row-reverse' }]}
+            >
+                {tabs.map(tab => (
+                    <TouchableOpacity
+                        key={tab.key}
+                        style={[styles.tab, activeTab === tab.key && styles.activeTab]}
+                        onPress={() => setActiveTab(tab.key)}
+                    >
+                        <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]} numberOfLines={1}>
+                            {tab.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
+
+            {/* Content */}
+            {activeTab === 'progress' ? (
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                    <View style={{ paddingHorizontal: 16 }}>
+                        <View style={styles.gridContainer}>
+                            {vouchers.map((item) => (
+                                <View key={item.id} style={[styles.rewardItem, { width: (scrWidth - 48) / 2 }]}>
+                                    <View style={styles.progressCircle}>
+                                        <Icon
+                                            name={item.icon || 'gift-outline'}
+                                            size={28}
+                                            color={THEME.p1}
+                                        />
+                                    </View>
+                                    <Text style={[styles.rewardTitle, isRTL && { textAlign: 'right' }]}>{item.title}</Text>
+                                    <Text style={[styles.rewardDesc, isRTL && { textAlign: 'right' }]}>{item.description}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                </ScrollView>
+            ) : (
+                <FlatList
+                    data={listData}
+                    keyExtractor={(it) => String(it.id)}
+                    renderItem={({ item }) => (
+                        <VoucherCard
+                            item={item}
+                            t={t}
+                            isRTL={isRTL}
+                            THEME={THEME}
+                            isDark={isDark}
+                            styles={styles}
+                            userId={userId}
+                            onCollect={handleCollectVoucher}
+                        />
+                    )}
+                    contentContainerStyle={[styles.content, { paddingBottom: 120 }]}
+                    showsVerticalScrollIndicator={false}
+                />
+            )}
+
+            {/* Floating Spin (active only) */}
+            {activeTab === 'active' && (
+                <TouchableOpacity style={styles.fab} onPress={() => setShowSpin(true)} activeOpacity={0.9}>
+                    <Text style={styles.fabText}>{t('spin', { defaultValue: 'Spin' })}</Text>
+                </TouchableOpacity>
+            )}
+
+            {/* Spin modal + Result popup */}
+            <WheelModal
+                visible={showSpin}
+                onClose={() => setShowSpin(false)}
+                onWon={(p) => { setShowSpin(false); setPrize(p); }}
+                t={t}
+            />
+            <ResultPopup
+                visible={!!prize}
+                prize={prize}
+                onClose={() => setPrize(null)}
+                t={t}
+            />
+        </View>
+    );
+};
+
+export default VoucherScreen;
+
+/* ---------------- styles ---------------- */
+const createStyles = (THEME, isDark) => StyleSheet.create({
+    container: { flex: 1, backgroundColor: THEME.bg },
+    content: { paddingTop: 12, paddingBottom: 100 },
+
+    /* gradient header */
+    headerGradient: {
+        borderBottomLeftRadius: 18,
+        borderBottomRightRadius: 18,
+        paddingBottom: 12,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingTop: 8,
+        paddingBottom: 4,
+        minHeight: 50,
+    },
+    backBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.12,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
+    },
+    headerTitle: {
+        fontSize: 20,
+        fontWeight: '900',
+        color: THEME.white,
+        flex: 1,
+        textAlign: 'center',
+        letterSpacing: 0.3,
+    },
+
+    /* tabs */
+    tabs: { paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+    tab: { paddingHorizontal: 14, paddingVertical: 10, backgroundColor: isDark ? THEME.line : '#F4F4F4', borderRadius: 12, marginHorizontal: 4 },
+    activeTab: { backgroundColor: THEME.p1 },
+    tabText: { fontSize: 14, fontWeight: '600', color: isDark ? THEME.sub : '#000' },
+    activeTabText: { color: '#fff' },
+
+    /* voucher card */
+    voucherWrapper: {
+        backgroundColor: THEME.card,
+        borderRadius: 12,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: isDark ? THEME.line : '#E5E7EB',
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 3,
+            },
+        }),
+    },
+    notchLeft: {
+        position: 'absolute',
+        left: -10,
+        top: '50%',
+        marginTop: -10,
+        width: 20,
+        height: 20,
+        borderTopRightRadius: 10,
+        borderBottomRightRadius: 10,
+        borderTopLeftRadius: 0,
+        borderBottomLeftRadius: 0,
+        borderWidth: 1,
+        borderLeftWidth: 0,
+        zIndex: 10,
+    },
+    notchRight: {
+        position: 'absolute',
+        right: -10,
+        top: '50%',
+        marginTop: -10,
+        width: 20,
+        height: 20,
+        borderTopLeftRadius: 10,
+        borderBottomLeftRadius: 10,
+        borderTopRightRadius: 0,
+        borderBottomRightRadius: 0,
+        borderWidth: 1,
+        borderRightWidth: 0,
+        zIndex: 10,
+    },
+    voucherHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    voucherLabel: {
+        fontWeight: '700',
+        fontSize: 15,
+    },
+    daysLeft: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    validityPill: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    validityPillText: {
+        color: '#FFFFFF',
+        fontSize: 11,
+        fontWeight: '600',
+    },
+    expiry: {
+        fontSize: 12,
+        color: THEME.sub,
+        fontWeight: '500',
+    },
+    dashedLineContainer: {
+        position: 'relative',
+        height: 1,
+        marginHorizontal: 0,
+        width: '100%',
+    },
+    dashedLine: {
+        borderBottomWidth: 1,
+        borderStyle: 'dashed',
+        marginVertical: 0,
+        marginHorizontal: 0,
+        width: '100%',
+    },
+    contentRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+        backgroundColor: THEME.card,
+    },
+    iconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: isDark ? THEME.line : '#F3F4F6',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    title: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: THEME.text,
+        marginBottom: 4,
+    },
+    desc: {
+        fontSize: 13,
+        color: THEME.sub,
+        lineHeight: 18,
+    },
+    collectBtn: {
+        backgroundColor: THEME.p1,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 8,
+        minWidth: 90,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    collectText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+
+    /* progress grid (original look) */
+    gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+    rewardItem: { marginBottom: 24, alignItems: 'center' },
+    progressCircle: { width: 70, height: 70, borderRadius: 35, borderWidth: 4, borderColor: THEME.p1, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+    rewardTitle: { fontSize: 15, fontWeight: 'bold', textAlign: 'center', color: THEME.text },
+    rewardDesc: { fontSize: 13, textAlign: 'center', color: THEME.sub },
+
+    /* FAB */
+    fab: { position: 'absolute', right: 16, bottom: 24, width: 64, height: 64, borderRadius: 32, backgroundColor: THEME.p1, alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8 },
+    fabText: { color: '#fff', fontWeight: '900', fontSize: 16 },
+
+    /* modal base */
+    modalWrap: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
+    modalBackdrop: { ...StyleSheet.absoluteFillObject },
+    modalCard: { backgroundColor: THEME.card, borderRadius: 16, padding: 16, alignItems: 'center' },
+    spinTitle: { color: THEME.text, fontWeight: '800', fontSize: 16, marginBottom: 10 },
+
+    pointerBall: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#10B981' },
+    shadowSoft: { shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 8, elevation: 2 },
+    centerBtn: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
+
+    /* result popup */
+    primaryBtn: { backgroundColor: THEME.p1, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 12, minWidth: 140, alignItems: 'center' },
+});

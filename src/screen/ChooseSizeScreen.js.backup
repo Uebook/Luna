@@ -1,0 +1,417 @@
+import React, { useMemo, useState } from 'react';
+import {
+    SafeAreaView, View, Text, StyleSheet, TouchableOpacity, TextInput,
+    ScrollView, Platform, I18nManager, useWindowDimensions,
+} from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../context/ThemeContext';
+import StandardHeader from '../components/StandardHeader';
+import { SkeletonFormScreen } from '../components/SkeletonLoader';
+import { useSkeletonLoader } from '../hooks/useSkeletonLoader';
+
+/* helpers */
+const toInches = (cm) => (cm ? cm / 2.54 : 0);
+const toCm = (inch) => (inch ? inch * 2.54 : 0);
+const toLbs = (kg) => (kg ? kg * 2.2046226218 : 0);
+const toKg = (lbs) => (lbs ? lbs / 2.2046226218 : 0);
+
+const Row = ({ children, style, styles }) => <View style={[styles.row, style]}>{children}</View>;
+const Pill = ({ active, children, onPress, style, styles, theme }) => (
+    <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.8}
+        style={[
+            styles.pill,
+            active && { backgroundColor: theme.p4, borderColor: theme.p1 },
+            style,
+        ]}>
+        <Text style={[styles.pillText, active && { color: theme.p1, fontWeight: '700' }]}>{children}</Text>
+    </TouchableOpacity>
+);
+const Chip = ({ active, label, onPress, icon, styles, theme }) => (
+    <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.8}
+        style={[styles.chip, active && { borderColor: theme.p1, backgroundColor: theme.p4 }]}>
+        {!!icon && <Ionicons name={icon} size={16} color={active ? theme.p1 : theme.sub} />}
+        <Text style={[styles.chipText, active && { color: theme.p1, fontWeight: '700' }]}>{label}</Text>
+    </TouchableOpacity>
+);
+const InputBox = ({ value, onChangeText, placeholder, keyboardType = 'numeric', right, styles, theme, isDark }) => (
+    <View style={styles.inputWrap}>
+        <TextInput
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={isDark ? theme.sub : '#9CA3AF'}
+            keyboardType={keyboardType}
+            style={styles.input}
+        />
+        {right}
+    </View>
+);
+const Labeled = ({ label, children, optional, styles }) => (
+    <View style={{ marginBottom: 14 }}>
+        <Row style={{ marginBottom: 6 }} styles={styles}>
+            <Text style={styles.label}>{label}</Text>
+            {optional ? <Text style={styles.optional}>• {optional}</Text> : null}
+        </Row>
+        {children}
+    </View>
+);
+
+export default function SizeProfileScreen({ navigation, route }) {
+    const { t, i18n } = useTranslation('size');
+    const isRTL = I18nManager.isRTL || i18n.dir?.() === 'rtl';
+    const { theme, isDark } = useTheme();
+    const [loading, setLoading] = useSkeletonLoader(true, 600);
+
+    // responsiveness
+    const { width } = useWindowDimensions();
+    const scale = Math.min(Math.max(width / 375, 0.9), 1.15);
+    const fs = (n) => Math.round(n * scale);
+    
+    const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => setLoading(false), 800);
+        return () => clearTimeout(timer);
+    }, [setLoading]);
+
+    // tabs
+    const [tab, setTab] = useState('Woman'); // Man / Woman / Kids
+
+    // adults
+    const bodyShapes = [
+        'rectangle', 'hourglass', 'pear', 'apple', 'invertedTriangle', 'oval',
+    ];
+    const [shape, setShape] = useState('hourglass');
+    const [useMetric, setUseMetric] = useState(true);
+    const [heightCm, setHeightCm] = useState('180');
+    const [heightIn, setHeightIn] = useState('71');
+    const [weightKg, setWeightKg] = useState('73');
+    const [weightLb, setWeightLb] = useState('161');
+    const [bustCm, setBustCm] = useState('');
+    const [waistCm, setWaistCm] = useState('');
+    const [hipsCm, setHipsCm] = useState('');
+    const [pref, setPref] = useState('tts'); // tts / slim / relaxed
+
+    // kids
+    const [kidGender, setKidGender] = useState('boy'); // boy | girl | na
+    const [age, setAge] = useState('5');
+    const [kidHeightCm, setKidHeightCm] = useState('112');
+    const [kidHeightIn, setKidHeightIn] = useState('44');
+    const [kidWeightKg, setKidWeightKg] = useState('19');
+    const [kidWeightLb, setKidWeightLb] = useState('42');
+    const [kidChestMode, setKidChestMode] = useState('none'); // none | tts
+
+    const toggleUnits = () => {
+        if (useMetric) {
+            setHeightIn(String(Math.round(toInches(Number(heightCm)) || 0)));
+            setWeightLb(String(Math.round(toLbs(Number(weightKg)) || 0)));
+            setKidHeightIn(String(Math.round(toInches(Number(kidHeightCm)) || 0)));
+            setKidWeightLb(String(Math.round(toLbs(Number(kidWeightKg)) || 0)));
+        } else {
+            setHeightCm(String(Math.round(toCm(Number(heightIn)) || 0)));
+            setWeightKg(String(Math.round(toKg(Number(weightLb)) || 0)));
+            setKidHeightCm(String(Math.round(toCm(Number(kidHeightIn)) || 0)));
+            setKidWeightKg(String(Math.round(toKg(Number(kidWeightLb)) || 0)));
+        }
+        setUseMetric(!useMetric);
+    };
+
+    const validAdult = useMemo(() => {
+        const h = useMetric ? Number(heightCm) : Number(heightIn);
+        const w = useMetric ? Number(weightKg) : Number(weightLb);
+        return h > 0 && w > 0;
+    }, [useMetric, heightCm, heightIn, weightKg, weightLb]);
+
+    const validKid = useMemo(() => {
+        const h = useMetric ? Number(kidHeightCm) : Number(kidHeightIn);
+        const w = useMetric ? Number(kidWeightKg) : Number(kidWeightLb);
+        return age && h > 0 && w > 0;
+    }, [age, useMetric, kidHeightCm, kidHeightIn, kidWeightKg, kidWeightLb]);
+
+    const onSubmit = () => {
+        if (tab === 'Kids' && !validKid) return;
+        if (tab !== 'Kids' && !validAdult) return;
+
+        const payload =
+            tab === 'Kids'
+                ? {
+                    type: 'kid',
+                    gender: kidGender,
+                    age: Number(age),
+                    height_cm: useMetric ? Number(kidHeightCm) : Math.round(toCm(Number(kidHeightIn))),
+                    weight_kg: useMetric ? Number(kidWeightKg) : Number(toKg(Number(kidWeightLb)).toFixed(1)),
+                    chest_pref: kidChestMode,
+                }
+                : {
+                    type: 'adult',
+                    tab,
+                    body_shape: shape,
+                    height_cm: useMetric ? Number(heightCm) : Math.round(toCm(Number(heightIn))),
+                    weight_kg: useMetric ? Number(weightKg) : Number(toKg(Number(weightLb)).toFixed(1)),
+                    bust_cm: bustCm ? Number(bustCm) : null,
+                    waist_cm: waistCm ? Number(waistCm) : null,
+                    hips_cm: hipsCm ? Number(hipsCm) : null,
+                    fit_preference: pref,
+                };
+
+        if (route?.params?.onDone) route.params.onDone(payload);
+        navigation?.goBack?.();
+    };
+
+    const headerTitle = tab === 'Kids' ? t('header.kid') : t('header.adult');
+
+    return (
+        <SafeAreaView style={[styles.container, { writingDirection: isRTL ? 'rtl' : 'ltr' }]}>
+            {/* Standard Header */}
+            <StandardHeader 
+                title={headerTitle}
+                navigation={navigation}
+                showGradient={true}
+            />
+
+            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
+                <View style={styles.card}>
+                    <Text style={[styles.title, { fontSize: fs(22) }]}>
+                        {tab === 'Kids' ? t('titles.kid') : t('titles.adult')}
+                    </Text>
+                    <Text style={[styles.subtitle, { fontSize: fs(13) }]}>
+                        {tab === 'Kids' ? t('subtitles.kid') : t('subtitles.adult')}
+                    </Text>
+
+                    {/* Tabs */}
+                    <Row style={{ marginTop: 12 }} styles={styles}>
+                        {['Man', 'Woman', 'Kids'].map((tKey, i) => (
+                            <TouchableOpacity
+                                key={tKey}
+                                onPress={() => setTab(tKey)}
+                                style={[styles.tab, tab === tKey && { backgroundColor: theme.p1 }, i === 2 && { marginRight: 0 }]}
+                                activeOpacity={0.9}
+                            >
+                                <Text
+                                    style={[
+                                        styles.tabText,
+                                        { fontSize: fs(14) },
+                                        tab === tKey && { color: '#fff', fontWeight: '700' },
+                                    ]}>
+                                    {t(`tabs.${tKey.toLowerCase()}`)}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </Row>
+
+                    {/* Kids */}
+                    {tab === 'Kids' ? (
+                        <View style={{ marginTop: 16 }}>
+                            <Text style={styles.sectionTitle}>{t('gender')}</Text>
+                            <Row style={{ gap: 10, marginBottom: 8 }} styles={styles}>
+                                <Pill active={kidGender === 'boy'} onPress={() => setKidGender('boy')} styles={styles} theme={theme}>{t('kidGender.boy')}</Pill>
+                                <Pill active={kidGender === 'girl'} onPress={() => setKidGender('girl')} styles={styles} theme={theme}>{t('kidGender.girl')}</Pill>
+                                <Pill active={kidGender === 'na'} onPress={() => setKidGender('na')} styles={styles} theme={theme}>{t('kidGender.na')}</Pill>
+                            </Row>
+
+                            <Labeled label={t('age')} styles={styles}>
+                                <InputBox
+                                    value={age}
+                                    onChangeText={setAge}
+                                    placeholder={t('units.years')}
+                                    right={<Text style={styles.inputSuffix}>{t('units.years')}</Text>}
+                                    styles={styles}
+                                    theme={theme}
+                                    isDark={isDark}
+                                />
+                            </Labeled>
+
+                            <Row style={{ gap: 12 }} styles={styles}>
+                                <View style={{ flex: 1 }}>
+                                    <Labeled label={t('height')} styles={styles}>
+                                        <InputBox
+                                            value={useMetric ? kidHeightCm : kidHeightIn}
+                                            onChangeText={(v) => (useMetric ? setKidHeightCm(v) : setKidHeightIn(v))}
+                                            placeholder={useMetric ? t('units.cm') : t('units.in')}
+                                            right={<Text style={styles.inputSuffix}>{useMetric ? t('units.cm') : t('units.in')}</Text>}
+                                            styles={styles}
+                                            theme={theme}
+                                            isDark={isDark}
+                                        />
+                                    </Labeled>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Labeled label={t('weight')} styles={styles}>
+                                        <InputBox
+                                            value={useMetric ? kidWeightKg : kidWeightLb}
+                                            onChangeText={(v) => (useMetric ? setKidWeightKg(v) : setKidWeightLb(v))}
+                                            placeholder={useMetric ? t('units.kg') : t('units.lbs')}
+                                            right={<Text style={styles.inputSuffix}>{useMetric ? t('units.kg') : t('units.lbs')}</Text>}
+                                            styles={styles}
+                                            theme={theme}
+                                            isDark={isDark}
+                                        />
+                                    </Labeled>
+                                </View>
+                            </Row>
+
+                            <TouchableOpacity onPress={toggleUnits} style={styles.unitToggle}>
+                                <Text style={styles.unitToggleText}>
+                                    {useMetric ? t('hints.kidMetric') : t('hints.kidImperial')}
+                                </Text>
+                            </TouchableOpacity>
+
+                            <Labeled label={t('chest')} optional={t('optional')} styles={styles}>
+                                <Row style={{ gap: 10 }} styles={styles}>
+                                    <Chip label={t('preferNoSelect')} active={kidChestMode === 'none'} onPress={() => setKidChestMode('none')} icon="eye-off-outline" styles={styles} theme={theme} />
+                                    <Chip label={t('trueToSize')} active={kidChestMode === 'tts'} onPress={() => setKidChestMode('tts')} icon="checkmark-circle-outline" styles={styles} theme={theme} />
+                                </Row>
+                            </Labeled>
+
+                            <Row style={{ gap: 12, marginTop: 8 }} styles={styles}>
+                                <TouchableOpacity style={[styles.btn, styles.btnGhost]} onPress={() => navigation?.goBack?.()}>
+                                    <Text style={[styles.btnText, { color: theme.text, fontSize: fs(16) }]}>{t('skip')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.btn, !validKid && styles.btnDisabled]} onPress={onSubmit} disabled={!validKid}>
+                                    <Text style={[styles.btnText, { fontSize: fs(16) }]}>{t('submit')}</Text>
+                                </TouchableOpacity>
+                            </Row>
+                        </View>
+                    ) : (
+                        /* Adults */
+                        <View style={{ marginTop: 16 }}>
+                            <Text style={styles.sectionTitle}>{t('bodyShape')}</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 8 }}>
+                                <Row style={{ gap: 10 }} styles={styles}>
+                                    {bodyShapes.map((key) => (
+                                        <Chip key={key} label={t(`shapes.${key}`)} active={shape === key} onPress={() => setShape(key)} icon="body-outline" styles={styles} theme={theme} />
+                                    ))}
+                                </Row>
+                            </ScrollView>
+
+                            <Labeled label={t('height')} styles={styles}>
+                                <InputBox
+                                    value={useMetric ? heightCm : heightIn}
+                                    onChangeText={(v) => (useMetric ? setHeightCm(v) : setHeightIn(v))}
+                                    placeholder={useMetric ? t('units.cm') : t('units.in')}
+                                    right={<Text style={styles.inputSuffix}>{useMetric ? t('units.cm') : t('units.in')}</Text>}
+                                    styles={styles}
+                                    theme={theme}
+                                    isDark={isDark}
+                                />
+                            </Labeled>
+
+                            <Labeled label={t('weight')} styles={styles}>
+                                <InputBox
+                                    value={useMetric ? weightKg : weightLb}
+                                    onChangeText={(v) => (useMetric ? setWeightKg(v) : setWeightLb(v))}
+                                    placeholder={useMetric ? t('units.kg') : t('units.lbs')}
+                                    right={<Text style={styles.inputSuffix}>{useMetric ? t('units.kg') : t('units.lbs')}</Text>}
+                                    styles={styles}
+                                    theme={theme}
+                                    isDark={isDark}
+                                />
+                            </Labeled>
+
+                            <TouchableOpacity onPress={toggleUnits} style={styles.unitToggle}>
+                                <Text style={styles.unitToggleText}>
+                                    {useMetric ? t('hints.adultMetric') : t('hints.adultImperial')}
+                                </Text>
+                            </TouchableOpacity>
+
+                            <Text style={[styles.sectionTitle, { marginTop: 16 }]}>{t('optional')}</Text>
+
+                            <Row style={{ gap: 12 }} styles={styles}>
+                                <View style={{ flex: 1 }}>
+                                    <Labeled label={tab === 'Woman' ? t('bust') : t('chestSize')} optional styles={styles}>
+                                        <InputBox value={bustCm} onChangeText={setBustCm} placeholder={t('units.cm')} right={<Text style={styles.inputSuffix}>{t('units.cm')}</Text>} styles={styles} theme={theme} isDark={isDark} />
+                                    </Labeled>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Labeled label={t('waist')} optional styles={styles}>
+                                        <InputBox value={waistCm} onChangeText={setWaistCm} placeholder={t('units.cm')} right={<Text style={styles.inputSuffix}>{t('units.cm')}</Text>} styles={styles} theme={theme} isDark={isDark} />
+                                    </Labeled>
+                                </View>
+                            </Row>
+                            <Labeled label={t('hips')} optional styles={styles}>
+                                <InputBox value={hipsCm} onChangeText={setHipsCm} placeholder={t('units.cm')} right={<Text style={styles.inputSuffix}>{t('units.cm')}</Text>} styles={styles} theme={theme} isDark={isDark} />
+                            </Labeled>
+
+                            <Labeled label={t('preference')} styles={styles}>
+                                <Row style={{ gap: 10 }} styles={styles}>
+                                    <Chip label={t('trueToSize')} active={pref === 'tts'} onPress={() => setPref('tts')} icon="checkmark-circle-outline" styles={styles} theme={theme} />
+                                    <Chip label={t('slim')} active={pref === 'slim'} onPress={() => setPref('slim')} icon="shirt-outline" styles={styles} theme={theme} />
+                                    <Chip label={t('relaxed')} active={pref === 'relaxed'} onPress={() => setPref('relaxed')} icon="shirt-outline" styles={styles} theme={theme} />
+                                </Row>
+                            </Labeled>
+
+                            <Row style={{ gap: 12, marginTop: 8 }} styles={styles}>
+                                <TouchableOpacity style={[styles.btn, styles.btnGhost]} onPress={() => navigation?.goBack?.()}>
+                                    <Text style={[styles.btnText, { color: theme.text, fontSize: fs(16) }]}>{t('skip')}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.btn, !validAdult && styles.btnDisabled]} onPress={onSubmit} disabled={!validAdult}>
+                                    <Text style={[styles.btnText, { fontSize: fs(16) }]}>{t('submit')}</Text>
+                                </TouchableOpacity>
+                            </Row>
+                        </View>
+                    )}
+                </View>
+            </ScrollView>
+        </SafeAreaView>
+    );
+}
+
+/* styles */
+const createStyles = (theme, isDark) => StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.bg },
+    header: { height: 56, alignItems: 'center', justifyContent: 'center' },
+    navBtn: { 
+        position: 'absolute', top: 0, bottom: 0, width: 40, 
+        alignItems: 'center', justifyContent: 'center', borderRadius: 20,
+        backgroundColor: isDark ? theme.line : '#F3F4F6',
+    },
+    headerTitle: { fontWeight: '800', color: theme.text },
+
+    card: {
+        backgroundColor: theme.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: theme.line,
+        shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 }, shadowRadius: 6, elevation: 2,
+    },
+    title: { fontWeight: '800', color: theme.text },
+    subtitle: { color: theme.sub, marginTop: 6 },
+
+    row: { flexDirection: 'row', alignItems: 'center' },
+
+    tab: { flex: 1, backgroundColor: isDark ? theme.line : '#EFF6FF', paddingVertical: 10, borderRadius: 10, marginRight: 10, alignItems: 'center' },
+    tabText: { color: theme.p1, fontWeight: '600' },
+
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 8 },
+
+    pill: { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.line, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12 },
+    pillText: { color: theme.text, fontSize: 14 },
+
+    chip: {
+        flexDirection: 'row', alignItems: 'center', columnGap: 6, borderWidth: 1, borderColor: theme.line, backgroundColor: theme.card,
+        paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
+    },
+    chipText: { fontSize: 12, color: theme.sub },
+
+    inputWrap: {
+        borderWidth: 1, borderColor: theme.line, borderRadius: 12, backgroundColor: theme.card,
+        paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 12 : 6, flexDirection: 'row',
+        alignItems: 'center', justifyContent: 'space-between',
+    },
+    input: { flex: 1, color: theme.text, fontSize: 14, paddingRight: 10 },
+    inputSuffix: { color: theme.sub, fontSize: 12 },
+
+    label: { color: theme.text, fontWeight: '700' },
+    optional: { marginLeft: 8, color: theme.sub },
+
+    unitToggle: { alignSelf: 'flex-start', marginBottom: 2, marginTop: -4 },
+    unitToggleText: { color: theme.p1, fontWeight: '700' },
+
+    btn: { flex: 1, backgroundColor: theme.p1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+    btnGhost: { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.line },
+    btnDisabled: { opacity: 0.5 },
+    btnText: { color: '#fff', fontWeight: '700' },
+});
+
