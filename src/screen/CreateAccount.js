@@ -41,7 +41,6 @@ const LANGUAGES = [
 ];
 
 const CURRENCIES = [
-  { code: 'USD', name: 'US Dollar', symbol: '$' },
   { code: 'BHD', name: 'Bahraini Dinar', symbol: '.د.ب' },
 ];
 
@@ -77,7 +76,7 @@ const CreateAccountScreen = ({ navigation }) => {
   const [phone, setPhone] = useState('');
   const [avatar, setAvatar] = useState(null);
   const [language, setLanguage] = useState(LANGUAGES[0]); // Default to English
-  const [currency, setCurrency] = useState(CURRENCIES[0]); // Default to USD
+  const [currency, setCurrency] = useState(CURRENCIES[0]); // Default to BHD
 
   // OTP Verification States
   const [showOTPModal, setShowOTPModal] = useState(false);

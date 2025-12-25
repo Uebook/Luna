@@ -91,11 +91,33 @@ export default function ReceivedGiftScreen({ navigation }) {
             setLoading(true);
             const response = await api.post('/wallet/received-gifts', { user_id: userId });
 
+            console.log('Received Gifts API Response:', JSON.stringify(response.data, null, 2));
+
             if (response.data.status && response.data.data) {
+                console.log('Received Gifts Data:', JSON.stringify(response.data.data, null, 2));
+                console.log('Number of gifts:', response.data.data.length);
+                
+                // Log each gift item structure
+                response.data.data.forEach((gift, index) => {
+                    console.log(`Gift ${index + 1}:`, {
+                        id: gift.id,
+                        code: gift.code,
+                        points: gift.points,
+                        message: gift.message,
+                        from: gift.from,
+                        recipient: gift.recipient,
+                        redeemed_at: gift.redeemed_at,
+                        created_at: gift.created_at,
+                    });
+                });
+                
                 setGifts(response.data.data);
+            } else {
+                console.log('No gifts data in response');
             }
         } catch (error) {
             console.error('Error fetching received gifts:', error);
+            console.error('Error response:', error.response?.data);
         } finally {
             setLoading(false);
         }
@@ -127,7 +149,7 @@ export default function ReceivedGiftScreen({ navigation }) {
                 )}
                 <View style={styles.giftFooter}>
                     <View>
-                        <Text style={styles.giftLabel}>{t('fromX', 'From")}</Text>
+                        <Text style={styles.giftLabel}>{t('fromX', 'From')}</Text>
                         <Text style={styles.giftFrom}>{item.from || item.recipient || 'Unknown'}</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>

@@ -347,10 +347,15 @@ class OrderController extends Controller
 
             } else {
                 if ($input['status'] == "completed" || $input['status'] == "delivered") {
-                    // Award reward points (1 BHD = 1 point)
-                    if ($data->user_id && in_array($data->status, ['pending', 'processing', 'shipped']) && !in_array($input['status'], ['cancelled', 'refunded'])) {
+                    // Award reward points (1 BHD = 1 point) when order is completed/delivered
+                    // Only award if transitioning from a non-completed status to completed/delivered
+                    if ($data->user_id && 
+                        !in_array($data->status, ['completed', 'delivered', 'cancelled', 'refunded']) && 
+                        !in_array($input['status'], ['cancelled', 'refunded'])) {
                         $amountBHD = floatval($data->pay_amount ?? 0);
-                        WalletController::awardPointsOnPurchase($data->user_id, $data->id, $amountBHD);
+                        if ($amountBHD > 0) {
+                            \App\Http\Controllers\Api\WalletController::awardPointsOnPurchase($data->user_id, $data->id, $amountBHD);
+                        }
                     }
 
                     foreach ($data->vendororders as $vorder) {

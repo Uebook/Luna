@@ -22,19 +22,7 @@ const USER_STORAGE_KEY = 'luna_user';
 
 // Currency utility function
 const getCurrencySymbol = (currencyCode) => {
-    const currencySymbols = {
-        'USD': '$',
-        'BHD': 'BHD',
-        'EUR': '€',
-        'GBP': '£',
-        'INR': '₹',
-        'AED': 'د.إ',
-        'SAR': '﷼',
-        'CAD': 'C$',
-        'AUD': 'A$',
-        'JPY': '¥',
-    };
-    return currencySymbols[currencyCode] || currencyCode || '.د.ب';
+    return 'BHD';
 };
 
 // Normalize user data

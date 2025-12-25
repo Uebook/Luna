@@ -122,28 +122,33 @@ export default function GiftCardReviewPay({ route, navigation }) {
                 return;
             }
 
-            // Extract email from contact (if it's an email)
+            // Extract email and phone from contact
             const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form?.contact || '');
+            const isPhone = /^[0-9+\-\s]{7,}$/.test(form?.contact || '');
             const recipientEmail = isEmail ? form.contact : null;
+            const recipientPhone = isPhone ? form.contact : null;
             const recipientName = form?.name || '';
+            const amount = form?.amount || selectedCard.value || selectedCard.price || 0;
 
             // Call purchase API
             const response = await api.post('/gift-card/purchase', {
                 user_id: userId,
                 gift_card_id: selectedCard.id,
                 recipient_email: recipientEmail,
+                recipient_phone: recipientPhone,
                 recipient_name: recipientName,
                 message: form?.message || '',
+                amount: amount,
             });
 
-            if (response.data.status) {
+            if (response.data.status && response.data.data) {
                 navigation.replace('GiftCardSuccess', {
                     selectedCard,
                     form,
-                    amount: form?.amount || selectedCard.value || selectedCard.price,
-                    orderId: response.data.purchase_id,
-                    giftCardCode: response.data.code,
-                    giftCard: response.data.gift_card,
+                    amount: response.data.data.amount || amount,
+                    orderId: response.data.data.purchase_id,
+                    giftCardCode: response.data.data.code,
+                    giftCard: response.data.data.gift_card,
                 });
             } else {
                 Alert.alert('Error', response.data.message || 'Failed to purchase gift card');

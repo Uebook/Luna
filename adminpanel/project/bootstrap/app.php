@@ -11,9 +11,9 @@
 |
  */
 
-$app = new Illuminate\Foundation\Application(
-    $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__)
-);
+// Set APP_BASE_PATH correctly - should point to the project directory
+$basePath = $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__);
+$app = new Illuminate\Foundation\Application($basePath);
 
 /*
 |--------------------------------------------------------------------------

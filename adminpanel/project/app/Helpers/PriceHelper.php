@@ -321,7 +321,17 @@ class PriceHelper
     
     
     static function  convertToArray($data) {
-    
+        // Handle null or empty values
+        if ($data === null || $data === '') {
+            return [];
+        }
+        
+        // If data is already an array, return it as-is
+        if (is_array($data)) {
+            return $data;
+        }
+        
+        // If data is a string, try to decode it
         if (is_string($data)) {
             $decodedData = json_decode($data, true);
     
@@ -329,16 +339,19 @@ class PriceHelper
             if (is_array($decodedData)) {
                 return $decodedData;
             } else {
-                // Handle the case where string is not valid JSON
-                throw new Exception("Invalid JSON string provided.");
+                // If string is not valid JSON, return empty array instead of throwing exception
+                // This handles cases where the data might be a plain string or invalid JSON
+                return [];
             }
-        } 
-        // If data is already an array, return it as-is
-        elseif (is_array($data)) {
-            return $data;
-        } else {
-            throw new Exception("Data must be a JSON string or an associative array.");
         }
+        
+        // If data is an object, convert it to array
+        if (is_object($data)) {
+            return (array) $data;
+        }
+        
+        // For any other type, return empty array
+        return [];
     }
     
     

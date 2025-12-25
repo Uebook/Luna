@@ -1178,7 +1178,7 @@ export default function HomeScreen({ navigation }) {
               progressBackgroundColor="#fff"
             />
           }
-          contentContainerStyle={{ paddingBottom: 40, backgroundColor: THEME.bg }}
+          contentContainerStyle={{ paddingBottom: 20, backgroundColor: THEME.bg }}
         >
           {/* Sticky header stack (Header + Category Bar) */}
           <View style={styles.stickyHeaderContainer}>

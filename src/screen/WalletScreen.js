@@ -323,6 +323,13 @@ export default function WalletScreen({ navigation }) {
                     <Feather name="codesandbox" color={COLORS.brand} size={16} />
                     <Text style={styles.secondaryTxt}>{t('wallet:redeemGift')}</Text>
                 </TouchableOpacity>
+                <TouchableOpacity 
+                    style={styles.secondaryBtn} 
+                    onPress={() => navigation.navigate('ReceivedGiftScreen')}
+                >
+                    <Feather name="inbox" color={COLORS.brand} size={16} />
+                    <Text style={styles.secondaryTxt}>{t('wallet:receivedGifts') || 'Received Gifts'}</Text>
+                </TouchableOpacity>
             </View>
         </View>
     );

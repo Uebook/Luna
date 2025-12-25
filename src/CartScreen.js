@@ -1,5 +1,5 @@
 // src/screens/CartScreen.js
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
@@ -18,8 +18,52 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Colors from './constants/Colors';
+import { getImageUrl } from './config/api';
 
 const CART_STORAGE_KEY = 'user_cart';
+
+// Cart Item Image Component with error handling
+const CartItemImage = React.memo(({ item, styles, getResponsiveSize, Colors }) => {
+    const [imageError, setImageError] = useState(false);
+    
+    // Get image from multiple possible fields
+    const imageSource = item.image || item.photo || item.thumbnail || item.product_image || item.img || item.productImage;
+    
+    console.log('=== CART ITEM IMAGE DEBUG ===');
+    console.log('Item ID:', item.id);
+    console.log('Item name:', item.name);
+    console.log('Raw image source:', imageSource);
+    console.log('All item keys:', Object.keys(item));
+    
+    const imageUri = imageSource ? getImageUrl(imageSource) : null;
+    
+    console.log('Formatted image URI:', imageUri);
+    console.log('Image error state:', imageError);
+    console.log('IMAGE_BASE_URL:', 'https://proteinbros.in/assets/images/products/');
+    
+    const handleImageError = (error) => {
+        console.log('Image load error:', error);
+        console.log('Failed URI:', imageUri);
+        setImageError(true);
+    };
+    
+    if (imageUri && !imageError) {
+        return (
+            <Image
+                source={{ uri: imageUri }}
+                style={styles.productImage}
+                resizeMode="cover"
+                onError={handleImageError}
+            />
+        );
+    }
+    
+    return (
+        <View style={[styles.productImage, styles.imagePlaceholder]}>
+            <Icon name="image" size={getResponsiveSize(32)} color={Colors.muted} />
+        </View>
+    );
+});
 
 const CartScreen = () => {
     const navigation = useNavigation();
@@ -47,7 +91,21 @@ const CartScreen = () => {
         try {
             const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
             if (cartData) {
-                setCartItems(JSON.parse(cartData));
+                const parsedCart = JSON.parse(cartData);
+                console.log('=== CART DATA ===');
+                console.log('Full cart data:', JSON.stringify(parsedCart, null, 2));
+                console.log('Number of items:', parsedCart.length);
+                if (parsedCart.length > 0) {
+                    console.log('First item structure:', JSON.stringify(parsedCart[0], null, 2));
+                    console.log('First item image fields:', {
+                        image: parsedCart[0].image,
+                        photo: parsedCart[0].photo,
+                        thumbnail: parsedCart[0].thumbnail,
+                        product_image: parsedCart[0].product_image,
+                        allKeys: Object.keys(parsedCart[0])
+                    });
+                }
+                setCartItems(parsedCart);
             } else {
                 setCartItems([]);
             }
@@ -128,14 +186,14 @@ const CartScreen = () => {
         return savedItems.has(itemKey);
     };
 
-    // Totals (KWD)
+    // Totals (BHD)
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const discount = subtotal * 0.10; // 10% discount
-    const shipping = subtotal > 50 ? 0 : 49.000; // Free shipping above 50 KWD
+    const shipping = subtotal > 50 ? 0 : 49.000; // Free shipping above 50 BHD
     const total = subtotal - discount + shipping;
     const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-    const formatPrice = (price) => `${parseFloat(price).toFixed(3)} KWD`;
+    const formatPrice = (price) => `${parseFloat(price).toFixed(3)} BHD`;
 
     const getColorName = (hex) => {
         const colorMap = {
@@ -171,10 +229,11 @@ const CartScreen = () => {
 
                 {/* Product Image */}
                 <View style={responsiveStyles.imageContainer}>
-                    <Image
-                        source={{ uri: item.image || 'https://via.placeholder.com/80x80' }}
-                        style={responsiveStyles.productImage}
-                        resizeMode="cover"
+                    <CartItemImage 
+                        item={item} 
+                        styles={responsiveStyles} 
+                        getResponsiveSize={getResponsiveSize} 
+                        Colors={Colors} 
                     />
                 </View>
 
@@ -279,13 +338,6 @@ const CartScreen = () => {
     if (cartItems.length === 0) {
         return (
             <SafeAreaView style={responsiveStyles.safe}>
-                <View style={responsiveStyles.titleSection}>
-                    <View>
-                        <Text style={responsiveStyles.pageTitle}>Shopping Cart</Text>
-                        <Text style={responsiveStyles.pageSubtitle}>0 items</Text>
-                    </View>
-                </View>
-
                 <View style={responsiveStyles.emptyContainer}>
                     <Icon name="remove-shopping-cart" size={getResponsiveSize(80)} color={Colors.muted} />
                     <Text style={responsiveStyles.emptyTitle}>Your cart is empty</Text>
@@ -307,15 +359,6 @@ const CartScreen = () => {
 
     return (
         <SafeAreaView style={responsiveStyles.safe}>
-            <View style={responsiveStyles.titleSection}>
-                <View>
-                    <Text style={responsiveStyles.pageTitle}>Shopping Cart</Text>
-                    <Text style={responsiveStyles.pageSubtitle}>
-                        {totalItems} {totalItems === 1 ? 'item' : 'items'}
-                    </Text>
-                </View>
-            </View>
-
             <ScrollView
                 style={responsiveStyles.scrollView}
                 showsVerticalScrollIndicator={false}
@@ -323,7 +366,6 @@ const CartScreen = () => {
             >
                 {/* Cart Items */}
                 <View style={responsiveStyles.cartItemsSection}>
-                    <Text style={responsiveStyles.sectionTitle}>Items in your cart ({totalItems})</Text>
                     {cartItems.map((item, index) => renderCartItem(item, index))}
                 </View>
 
@@ -363,6 +405,22 @@ const CartScreen = () => {
                             <Text style={responsiveStyles.freeShippingText}>You qualify for free shipping!</Text>
                         </View>
                     )}
+
+                    {/* Proceed to Checkout Button */}
+                    <TouchableOpacity
+                        style={responsiveStyles.priceCardCheckoutButton}
+                        onPress={() => navigation.navigate('CheckoutScreen')}
+                    >
+                        <LinearGradient
+                            colors={[Colors.p1, Colors.p2]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={responsiveStyles.priceCardCheckoutGradient}
+                        >
+                            <Text style={responsiveStyles.priceCardCheckoutText}>PROCEED TO CHECKOUT</Text>
+                            <Icon name="arrow-forward" size={getResponsiveSize(20)} color={Colors.white} />
+                        </LinearGradient>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Security Banner */}
@@ -373,23 +431,6 @@ const CartScreen = () => {
                     </Text>
                 </View>
             </ScrollView>
-
-            {/* Bottom Checkout Bar */}
-            <View style={responsiveStyles.checkoutBar}>
-                <View style={responsiveStyles.totalContainer}>
-                    <Text style={responsiveStyles.bottomTotal}>{formatPrice(total)}</Text>
-                    <Text style={responsiveStyles.bottomItems}>
-                        {totalItems} {totalItems === 1 ? 'item' : 'items'}
-                    </Text>
-                </View>
-                <TouchableOpacity
-                    style={responsiveStyles.checkoutButton}
-                    onPress={() => navigation.navigate('CheckoutScreen')}
-                >
-                    <Text style={responsiveStyles.checkoutButtonText}>PROCEED TO CHECKOUT</Text>
-                    <Icon name="arrow-forward" size={getResponsiveSize(20)} color={Colors.white} />
-                </TouchableOpacity>
-            </View>
         </SafeAreaView>
     );
 };
@@ -455,21 +496,19 @@ const createResponsiveStyles = (windowWidth, windowHeight) => {
         shopNowText: { color: Colors.white, fontSize: getResponsiveSize(16), fontWeight: '700' },
 
         cartItemsSection: {
-            backgroundColor: Colors.card, marginHorizontal: getSpacing(16), marginBottom: getSpacing(16),
+            backgroundColor: Colors.card, marginHorizontal: getSpacing(16), marginTop: getSpacing(16), marginBottom: getSpacing(16),
             borderRadius: 12, overflow: 'hidden',
             ...Platform.select({ ios: { shadowColor: Colors.ink, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }, android: { elevation: 3 } }),
         },
-        sectionTitle: {
-            fontSize: getResponsiveSize(16), fontWeight: '700', color: Colors.ink, padding: getSpacing(16),
-            backgroundColor: Colors.bg, borderBottomWidth: 1, borderBottomColor: Colors.line,
-        },
         cartItem: {
             flexDirection: 'row', padding: getSpacing(16), borderBottomWidth: 1, borderBottomColor: Colors.line, backgroundColor: Colors.card,
+            alignItems: 'flex-start',
         },
         cartItemTablet: { padding: getSpacing(20) },
-        checkbox: { marginRight: getSpacing(12), justifyContent: 'flex-start' },
-        imageContainer: { marginRight: getSpacing(12) },
+        checkbox: { marginRight: getSpacing(12), justifyContent: 'flex-start', paddingTop: getSpacing(2) },
+        imageContainer: { marginRight: getSpacing(12), justifyContent: 'flex-start' },
         productImage: { width: getResponsiveSize(80), height: getResponsiveSize(80), borderRadius: 8, backgroundColor: Colors.bg },
+        imagePlaceholder: { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.line },
         productDetails: { flex: 1 },
         productName: { fontSize: getResponsiveSize(14), fontWeight: '600', color: Colors.ink, lineHeight: getResponsiveSize(18), marginBottom: getSpacing(6) },
         variantContainer: { flexDirection: 'row', marginBottom: getSpacing(6), flexWrap: 'wrap' },
@@ -525,6 +564,17 @@ const createResponsiveStyles = (windowWidth, windowHeight) => {
             borderRadius: 6, marginTop: getSpacing(12),
         },
         freeShippingText: { fontSize: getResponsiveSize(12), color: Colors.success, fontWeight: '600', marginLeft: getSpacing(6) },
+        priceCardCheckoutButton: {
+            marginTop: getSpacing(16),
+            borderRadius: 8,
+            overflow: 'hidden',
+            ...Platform.select({ ios: { shadowColor: Colors.ink, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }, android: { elevation: 4 } }),
+        },
+        priceCardCheckoutGradient: {
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+            paddingVertical: getSpacing(14), paddingHorizontal: getSpacing(16),
+        },
+        priceCardCheckoutText: { color: Colors.white, fontSize: getResponsiveSize(14), fontWeight: '700', marginRight: getSpacing(8) },
 
         securityBanner: {
             flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, marginHorizontal: getSpacing(16),
@@ -535,7 +585,9 @@ const createResponsiveStyles = (windowWidth, windowHeight) => {
 
         checkoutBar: {
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.card,
-            paddingHorizontal: getSpacing(16), paddingVertical: getSpacing(12), borderTopWidth: 1, borderTopColor: Colors.line,
+            paddingHorizontal: getSpacing(16), paddingVertical: getSpacing(12), 
+            paddingBottom: Platform.OS === 'ios' ? getSpacing(12) + 80 : getSpacing(12) + 60, // Add padding for bottom navigation
+            borderTopWidth: 1, borderTopColor: Colors.line,
             ...Platform.select({ ios: { shadowColor: Colors.ink, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 4 }, android: { elevation: 8 } }),
         },
         totalContainer: { flex: 1 },

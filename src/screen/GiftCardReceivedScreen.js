@@ -61,12 +61,12 @@ export default function GiftCardReceivedScreen({ navigation }) {
                 return;
             }
 
-            const response = await api.post('/gift-card/get-user-gift-cards', {
+            const response = await api.post('/gift-card/received', {
                 user_id: userId,
             });
             
-            if (response.data.status && response.data.gift_cards) {
-                setReceivedGifts(response.data.gift_cards);
+            if (response.data.status && response.data.data) {
+                setReceivedGifts(response.data.data);
             } else {
                 setReceivedGifts([]);
             }

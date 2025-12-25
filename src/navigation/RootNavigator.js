@@ -1,87 +1,79 @@
 // navigation/RootNavigator.js
-import React, { lazy } from 'react';
+// Import ALL screens directly to prevent "Downloading..." message
+import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
 
-// Critical screens - load immediately
+// Import all screens directly (no lazy loading)
 import BottomTabs from './BottomTabs';
 import SplashVideoScreen from '../screen/SplashVideoScreen';
 import NewHome from '../screen/NewHome';
 import LoginScreen from '../screen/LoginScreen';
 import OnboardingScreen from '../screen/OnboardingScreen';
-
-// Lazy load all other screens for better performance
-const SplashScreen = lazy(() => import('../screen/SplashScreen'));
-const CreateAccountScreen = lazy(() => import('../screen/CreateAccount'));
-const ChatBotModal = lazy(() => import('../screen/ChatBotModal'));
-const HistoryScreen = lazy(() => import('../screen/HistoryScreen'));
-const OrderTrackingScreen = lazy(() => import('../screen/OrderTrackingScreen'));
-const PasswordRecoveryScreen = lazy(() => import('../screen/PasswordRecoveryScreen'));
-const PasswordScreen = lazy(() => import('../screen/PasswordScreen'));
-const SetupNewPasswordScreen = lazy(() => import('../screen/SetupNewPasswordScreen'));
-const ToReceiveOrdersScreen = lazy(() => import('../screen/ToReceiveOrdersScreen'));
-const CartScreen = lazy(() => import('../CartScreen'));
-const ProfileScreen = lazy(() => import('../ProfileScreen'));
-const RecentlyViewedScreen = lazy(() => import('../RecentlyViewedScreen'));
-const ReviewScreen = lazy(() => import('../ReviewScreen'));
-const ShopScreen = lazy(() => import('../ShopScreen'));
-const WishlistScreen = lazy(() => import('../WishlistScreen'));
-const ProductDetailScreen = lazy(() => import('../screen/ProductDetailScreen'));
-const ActivityScreen = lazy(() => import('../screen/ActivityScreen'));
-const NotificationScreen = lazy(() => import('../screen/NotificationScreen'));
-const SettingsProfileScreen = lazy(() => import('../screen/SettingsProfileScreen'));
-const ShippingAddressScreen = lazy(() => import('../screen/ShippingAddressScreen'));
-const ChooseCountryScreen = lazy(() => import('../screen/ChooseCountryScreen'));
-const ChooseCurrencyScreen = lazy(() => import('../screen/ChooseCurrencyScreen'));
-const ChooseSizeScreen = lazy(() => import('../screen/ChooseSizeScreen'));
-const TermsAndConditionsScreen = lazy(() => import('../screen/TermsAndConditionsScreen'));
-const AboutScreen = lazy(() => import('../screen/AboutScreen'));
-const ChooseLanguageScreen = lazy(() => import('../screen/ChooseLanguageScreen'));
-const CategoriesFilterScreen = lazy(() => import('../screen/CategoriesFilterScreen'));
-const VoucherScreen = lazy(() => import('../screen/VoucherScreen'));
-const FlashSaleScreen = lazy(() => import('../screen/FlashSaleScreen'));
-const LiveProductCard = lazy(() => import('../screen/LiveProductCard'));
-const ChatSupportScreen = lazy(() => import('../screen/ChatSupportScreen'));
-const PasswordTyping = lazy(() => import('../screen/PasswordTyping'));
-const TopProductsScreen = lazy(() => import('../screen/TopProductsScreen'));
-const ImageSearchResults = lazy(() => import('../screen/ImageSearchResults'));
-const CelebrityDetailScreen = lazy(() => import('../screen/CelebrityDetailScreen'));
-const CheckoutScreen = lazy(() => import('../screen/CheckoutScreen'));
-const SearchScreen = lazy(() => import('../screen/SearchScreen'));
-const CategoryProductScreen = lazy(() => import('../screen/CategoryProductScreen'));
-const WalletScreen = lazy(() => import('../screen/WalletScreen'));
-const SubscriptionScreen = lazy(() => import('../screen/SubscriptionScreen'));
-const ContactPreferencesNew = lazy(() => import('../screen/ContactPreferencesNew'));
-const OrderDetailsScreen = lazy(() => import('../screen/OrderDetailsScreen'));
-const RefundPolicyScreen = lazy(() => import('../screen/RefundPolicyScreen'));
-const PrivacyPolicyScreen = lazy(() => import('../screen/PrivacyPolicyScreen'));
-const GiftCardBrowse = lazy(() => import('../screen/GiftCardBrowse'));
-const GiftCardReviewPay = lazy(() => import('../screen/GiftCardReviewPay'));
-const GiftCardSuccess = lazy(() => import('../screen/GiftCardSuccess'));
-const StreamScreen = lazy(() => import('../screen/StreamScreen'));
-const StreamPlayerScreen = lazy(() => import('../screen/StreamPlayerScreen'));
-const AllCategoriesScreen = lazy(() => import('../screen/AllCategoriesScreen'));
-const CelebritiesExploreScreen = lazy(() => import('../screen/CelebritiesScreen'));
-const SubcategoryListScreen = lazy(() => import('../screen/SubcategoryListScreen'));
-const AISearchScreen = lazy(() => import('../screen/AISearchScreen'));
-const ProductResultsScreen = lazy(() => import('../screen/AIproductResultsScreen'));
-const ExploreScreen = lazy(() => import('../screen/ExploreScreen'));
-const BrandStoreScreen = lazy(() => import('../screen/BrandStoreScreen'));
-const StoriesScreen = lazy(() => import('../screen/StoriesScreen'));
-const BestProductsScreen = lazy(() => import('../screen/BestProductsScreen'));
-const AllNewProductScreen = lazy(() => import('../screen/AllNewProduct'));
-const TrendingProductsScreen = lazy(() => import('../screen/TrendingProductsScreen'));
-const SubCategoryProductsScreen = lazy(() => import('../screen/SubCategoryProductsScreen'));
-const ReceivedGiftScreen = lazy(() => import('../screen/ReceivedGiftScreen'));
-
-// Wrapper component for lazy loaded screens
-const LazyScreen = ({ component: Component, ...props }) => {
-  return (
-    <React.Suspense fallback={null}>
-      <Component {...props} />
-    </React.Suspense>
-  );
-};
+import SplashScreen from '../screen/SplashScreen';
+import CreateAccountScreen from '../screen/CreateAccount';
+import ChatBotModal from '../screen/ChatBotModal';
+import HistoryScreen from '../screen/HistoryScreen';
+import OrderTrackingScreen from '../screen/OrderTrackingScreen';
+import PasswordRecoveryScreen from '../screen/PasswordRecoveryScreen';
+import PasswordScreen from '../screen/PasswordScreen';
+import SetupNewPasswordScreen from '../screen/SetupNewPasswordScreen';
+import ToReceiveOrdersScreen from '../screen/ToReceiveOrdersScreen';
+import CartScreen from '../CartScreen';
+import ProfileScreen from '../ProfileScreen';
+import RecentlyViewedScreen from '../RecentlyViewedScreen';
+import ReviewScreen from '../ReviewScreen';
+import ShopScreen from '../ShopScreen';
+import WishlistScreen from '../WishlistScreen';
+import ProductDetailScreen from '../screen/ProductDetailScreen';
+import ActivityScreen from '../screen/ActivityScreen';
+import NotificationScreen from '../screen/NotificationScreen';
+import SettingsProfileScreen from '../screen/SettingsProfileScreen';
+import ShippingAddressScreen from '../screen/ShippingAddressScreen';
+import ChooseCountryScreen from '../screen/ChooseCountryScreen';
+import ChooseCurrencyScreen from '../screen/ChooseCurrencyScreen';
+import ChooseSizeScreen from '../screen/ChooseSizeScreen';
+import TermsAndConditionsScreen from '../screen/TermsAndConditionsScreen';
+import AboutScreen from '../screen/AboutScreen';
+import ChooseLanguageScreen from '../screen/ChooseLanguageScreen';
+import CategoriesFilterScreen from '../screen/CategoriesFilterScreen';
+import VoucherScreen from '../screen/VoucherScreen';
+import FlashSaleScreen from '../screen/FlashSaleScreen';
+import LiveProductCard from '../screen/LiveProductCard';
+import ChatSupportScreen from '../screen/ChatSupportScreen';
+import PasswordTyping from '../screen/PasswordTyping';
+import TopProductsScreen from '../screen/TopProductsScreen';
+import ImageSearchResults from '../screen/ImageSearchResults';
+import CelebrityDetailScreen from '../screen/CelebrityDetailScreen';
+import CheckoutScreen from '../screen/CheckoutScreen';
+import SearchScreen from '../screen/SearchScreen';
+import CategoryProductScreen from '../screen/CategoryProductScreen';
+import WalletScreen from '../screen/WalletScreen';
+import SubscriptionScreen from '../screen/SubscriptionScreen';
+import ContactPreferencesNew from '../screen/ContactPreferencesNew';
+import OrderDetailsScreen from '../screen/OrderDetailsScreen';
+import RefundPolicyScreen from '../screen/RefundPolicyScreen';
+import PrivacyPolicyScreen from '../screen/PrivacyPolicyScreen';
+import GiftCardBrowse from '../screen/GiftCardBrowse';
+import GiftCardReviewPay from '../screen/GiftCardReviewPay';
+import GiftCardSuccess from '../screen/GiftCardSuccess';
+import StreamScreen from '../screen/StreamScreen';
+import StreamPlayerScreen from '../screen/StreamPlayerScreen';
+import AllCategoriesScreen from '../screen/AllCategoriesScreen';
+import CelebritiesExploreScreen from '../screen/CelebritiesScreen';
+import SubcategoryListScreen from '../screen/SubcategoryListScreen';
+import AISearchScreen from '../screen/AISearchScreen';
+import ProductResultsScreen from '../screen/AIproductResultsScreen';
+import ExploreScreen from '../screen/ExploreScreen';
+import BrandStoreScreen from '../screen/BrandStoreScreen';
+import StoriesScreen from '../screen/StoriesScreen';
+import BestProductsScreen from '../screen/BestProductsScreen';
+import AllNewProductScreen from '../screen/AllNewProduct';
+import TrendingProductsScreen from '../screen/TrendingProductsScreen';
+import SubCategoryProductsScreen from '../screen/SubCategoryProductsScreen';
+import ReceivedGiftScreen from '../screen/ReceivedGiftScreen';
+import BlogListScreen from '../screen/BlogListScreen';
+import BlogDetailScreen from '../screen/BlogDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -219,6 +211,8 @@ const RootNavigator = () => {
         <Stack.Screen name="ExploreScreen" component={ExploreScreen} />
         <Stack.Screen name="BrandStoreScreen" component={BrandStoreScreen} />
         <Stack.Screen name="StoriesScreen" component={StoriesScreen} />
+        <Stack.Screen name="BlogListScreen" component={BlogListScreen} />
+        <Stack.Screen name="BlogDetailScreen" component={BlogDetailScreen} />
 
 
 

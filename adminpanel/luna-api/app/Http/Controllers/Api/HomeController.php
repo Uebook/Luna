@@ -294,7 +294,6 @@ if (!empty($categoryId)) {
     $query = DB::table('products')
         ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
         ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
-        ->leftJoin(DB::raw('(SELECT product_id, AVG(rating) as avg_rating, COUNT(*) as review_count FROM ratings GROUP BY product_id) as r'), 'products.id', '=', 'r.product_id')
         ->select(
             'products.*',
             'brands.name as brand_name',
@@ -302,11 +301,8 @@ if (!empty($categoryId)) {
             'categories.name as category_name',
             'categories.image as category_image',
             'categories.photo as category_photo',
-            DB::raw('COALESCE(r.avg_rating, 0) as average_rating'),
-            DB::raw('COALESCE(r.review_count, 0) as review_count')
         )
         ->where("products.$type", 1)
-        ->where('products.status', 1)
         ->take(10);
 
     if (!empty($categoryId)) {
@@ -322,79 +318,6 @@ if (!empty($categoryId)) {
     $productCollections["{$type}_products"] = $query->get();
 }
 
-        // Most Popular Products (based on ratings and views)
-        $popularProducts = DB::table('products')
-            ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
-            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
-            ->leftJoin(DB::raw('(SELECT product_id, AVG(rating) as avg_rating, COUNT(*) as review_count FROM ratings GROUP BY product_id) as r'), 'products.id', '=', 'r.product_id')
-            ->select(
-                'products.*',
-                'brands.name as brand_name',
-                'brands.logo as brand_logo',
-                'categories.name as category_name',
-                DB::raw('COALESCE(r.avg_rating, 0) as average_rating'),
-                DB::raw('COALESCE(r.review_count, 0) as review_count')
-            )
-            ->where('products.status', 1)
-            ->orderByRaw('(COALESCE(r.avg_rating, 0) * COALESCE(r.review_count, 0) + products.views * 0.1) DESC')
-            ->take(10)
-            ->get();
-
-        // You Might Like Products (recommendations based on similar categories or trending)
-        $youMightLike = DB::table('products')
-            ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
-            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
-            ->leftJoin(DB::raw('(SELECT product_id, AVG(rating) as avg_rating, COUNT(*) as review_count FROM ratings GROUP BY product_id) as r'), 'products.id', '=', 'r.product_id')
-            ->select(
-                'products.*',
-                'brands.name as brand_name',
-                'brands.logo as brand_logo',
-                'categories.name as category_name',
-                DB::raw('COALESCE(r.avg_rating, 0) as average_rating'),
-                DB::raw('COALESCE(r.review_count, 0) as review_count')
-            )
-            ->where('products.status', 1)
-            ->where(function($q) {
-                $q->where('products.trending', 1)
-                  ->orWhere('products.best', 1)
-                  ->orWhere('products.hot', 1);
-            })
-            ->inRandomOrder()
-            ->take(10)
-            ->get();
-
-        // Recent Reviews (latest product reviews)
-        $recentReviews = DB::table('ratings')
-            ->leftJoin('products', 'ratings.product_id', '=', 'products.id')
-            ->leftJoin('users', 'ratings.user_id', '=', 'users.id')
-            ->select(
-                'ratings.id',
-                'ratings.product_id',
-                'ratings.rating',
-                'ratings.review',
-                'ratings.review_date',
-                'users.name as user_name',
-                'users.photo as user_photo',
-                'products.name as product_name',
-                'products.photo as product_photo',
-                'products.price as product_price'
-            )
-            ->where('products.status', 1)
-            ->orderBy('ratings.review_date', 'desc')
-            ->take(10)
-            ->get()
-            ->map(function($review) {
-                // Format product image URL
-                if ($review->product_photo && !preg_match('/^https?:\/\//', $review->product_photo)) {
-                    $review->product_photo = 'https://proteinbros.in/assets/images/products/' . ltrim($review->product_photo, '/');
-                }
-                // Format user photo URL
-                if ($review->user_photo && !preg_match('/^https?:\/\//', $review->user_photo)) {
-                    $review->user_photo = 'https://proteinbros.in/assets/images/users/' . ltrim($review->user_photo, '/');
-                }
-                return $review;
-            });
-
         return response()->json([
             'status' => true,
             'message' => 'Data fetched successfully.',
@@ -409,9 +332,6 @@ if (!empty($categoryId)) {
             'brands' => $brands,
             'subCategories'=>$subCategories,
             'random_products' => $products,
-            'popular_products' => $popularProducts,
-            'you_might_like' => $youMightLike,
-            'recent_reviews' => $recentReviews,
             ...$productCollections,
         ], 200);
 

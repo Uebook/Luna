@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Exception;
+use App\Http\Controllers\Api\WalletController;
 
 class CheckoutController extends Controller
 {
@@ -312,6 +313,103 @@ class CheckoutController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Error fetching activity statistics.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update order status and award points if order is completed/delivered
+     */
+    public function updateOrderStatus(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'order_id' => 'required|exists:orders,id',
+                'status' => 'required|string|in:pending,processing,shipped,delivered,completed,cancelled,refunded',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            DB::beginTransaction();
+
+            $order = Order::find($request->order_id);
+            if (!$order) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Order not found',
+                ], 404);
+            }
+
+            $oldStatus = $order->status;
+            $newStatus = $request->status;
+
+            // Update order status
+            $order->status = $newStatus;
+            $order->save();
+
+            // Award points if order status changed to completed or delivered
+            if (in_array($newStatus, ['completed', 'delivered']) && !in_array($oldStatus, ['completed', 'delivered'])) {
+                $amountBHD = floatval($order->pay_amount ?? 0);
+                if ($amountBHD <= 0) {
+                    // Calculate from cart if pay_amount is not available
+                    $cart = is_string($order->cart) ? json_decode($order->cart, true) : $order->cart;
+                    if ($cart) {
+                        $items = [];
+                        if (is_array($cart) && isset($cart[0]) && !isset($cart['items'])) {
+                            $items = $cart;
+                        } elseif (isset($cart['items'])) {
+                            $itemsData = $cart['items'];
+                            if (is_array($itemsData) && isset($itemsData[0])) {
+                                $items = $itemsData;
+                            } elseif (is_object($itemsData) || (is_array($itemsData) && !isset($itemsData[0]))) {
+                                $items = array_values($itemsData);
+                            }
+                        }
+                        foreach ($items as $item) {
+                            $amount = 0;
+                            $qty = 1;
+                            if (isset($item['item']) && is_array($item['item'])) {
+                                $productData = $item['item'];
+                                $amount = isset($item['price']) ? floatval($item['price']) : (isset($productData['price']) ? floatval($productData['price']) : 0);
+                                $qty = isset($item['qty']) ? intval($item['qty']) : 1;
+                            } elseif (isset($item['id']) || isset($item['product_id'])) {
+                                $amount = isset($item['price']) ? floatval($item['price']) : 0;
+                                $qty = isset($item['qty']) ? intval($item['qty']) : (isset($item['quantity']) ? intval($item['quantity']) : 1);
+                            }
+                            $amountBHD += $amount * $qty;
+                        }
+                    }
+                }
+
+                // Award points (1 BHD = 1 point)
+                WalletController::awardPointsOnPurchase($order->user_id, $order->id, $amountBHD);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Order status updated successfully.',
+                'data' => [
+                    'order_id' => $order->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => $newStatus,
+                ],
+            ]);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'message' => 'Error updating order status.',
                 'error' => $e->getMessage(),
             ], 500);
         }

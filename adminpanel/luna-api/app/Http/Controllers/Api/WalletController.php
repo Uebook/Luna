@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Order;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Exception;
 
 class WalletController extends Controller
@@ -38,16 +39,10 @@ class WalletController extends Controller
                 ], 404);
             }
 
-            // Get reward points (balance) - check if field exists
-            // Try to get reward field, fallback to 0 if not exists
-            $rewardPoints = 0;
-            if (property_exists($user, 'reward') && $user->reward !== null) {
-                $rewardPoints = (int)$user->reward;
-            } elseif (property_exists($user, 'balance') && $user->balance !== null) {
-                $rewardPoints = (int)$user->balance;
-            }
+            // Get reward points - use reward_points column, default to 0 if not set
+            $rewardPoints = isset($user->reward_points) ? (int)$user->reward_points : 0;
             
-            // Convert to BHD (assuming 1 point = 0.01 BHD, can be made configurable)
+            // Convert to BHD (100 points = 1 BHD, so 1 point = 0.01 BHD)
             $bhdValue = $rewardPoints * 0.01;
 
             // Calculate total purchase amount from all orders (using same logic as activity stats)
@@ -102,7 +97,7 @@ class WalletController extends Controller
                 'data' => [
                     'points' => $rewardPoints,
                     'balance_bhd' => round($bhdValue, 3),
-                    'points_to_bhd_ratio' => 0.01, // Can be made dynamic from settings
+                    'points_to_bhd_ratio' => 0.01, // 100 points = 1 BHD
                     'total_purchase_amount' => round($totalPurchaseAmount, 3),
                 ],
             ]);
@@ -243,7 +238,7 @@ class WalletController extends Controller
             }
 
             // Check if reward_transactions table exists
-            if (!DB::getSchemaBuilder()->hasTable('reward_transactions')) {
+            if (!Schema::hasTable('reward_transactions')) {
                 return response()->json([
                     'status' => true,
                     'message' => 'Transactions fetched successfully.',
@@ -254,38 +249,50 @@ class WalletController extends Controller
             $transactions = DB::table('reward_transactions')
                 ->where('user_id', $request->user_id)
                 ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($tx) {
-                    $giftCode = null;
-                    if ($tx->gift_code_id) {
-                        $giftCode = DB::table('gift_codes')->where('id', $tx->gift_code_id)->first();
-                    }
-                    
-                    $fromUser = null;
-                    $toUser = null;
-                    if ($giftCode) {
-                        if ($giftCode->from_user_id) {
-                            $fromUser = DB::table('users')->where('id', $giftCode->from_user_id)->first();
-                        }
-                        if ($giftCode->to_user_id) {
-                            $toUser = DB::table('users')->where('id', $giftCode->to_user_id)->first();
-                        }
-                    }
+                ->get();
 
-                    return [
-                        'id' => $tx->id,
-                        'type' => $tx->type,
-                        'points' => $tx->points,
-                        'note' => $tx->note ?? ($fromUser ? $fromUser->email : ($toUser ? $toUser->email : null)),
-                        'at' => $tx->created_at ? date('Y-m-d', strtotime($tx->created_at)) : date('Y-m-d'),
-                        'gift_code' => $giftCode ? $giftCode->code : null,
-                    ];
-                });
+            $formattedTransactions = [];
+            foreach ($transactions as $txn) {
+                $type = $txn->type;
+                $description = $txn->description;
+                
+                // Format description based on type
+                if ($type === 'gift_sent') {
+                    $giftCode = DB::table('gift_codes')->where('id', $txn->gift_code_id)->first();
+                    if ($giftCode) {
+                        $toContact = $giftCode->to_email ?: $giftCode->to_phone;
+                        $description = 'Gift sent to ' . $toContact;
+                    }
+                } elseif ($type === 'gift_received') {
+                    $giftCode = DB::table('gift_codes')->where('id', $txn->gift_code_id)->first();
+                    if ($giftCode) {
+                        $fromUser = DB::table('users')->where('id', $giftCode->from_user_id)->first();
+                        $description = 'Gift received from ' . ($fromUser->name ?? 'Unknown');
+                    }
+                } elseif ($type === 'purchase') {
+                    $description = 'Points earned from purchase';
+                } elseif ($type === 'redeem_code') {
+                    // Check if it's a gift card redemption or reward code redemption
+                    if (strpos($description, 'Gift card redeemed') !== false) {
+                        $description = $description; // Keep original description with code
+                    } else {
+                        $description = 'Code redeemed: ' . ($description ?? 'Gift code');
+                    }
+                }
+
+                $formattedTransactions[] = [
+                    'id' => $txn->id,
+                    'type' => $type,
+                    'points' => $txn->points,
+                    'description' => $description,
+                    'at' => $txn->created_at ? date('Y-m-d H:i:s', strtotime($txn->created_at)) : date('Y-m-d H:i:s'),
+                ];
+            }
 
             return response()->json([
                 'status' => true,
                 'message' => 'Transactions fetched successfully.',
-                'data' => $transactions,
+                'data' => $formattedTransactions,
             ]);
 
         } catch (Exception $e) {
@@ -298,7 +305,7 @@ class WalletController extends Controller
     }
 
     /**
-     * Send gift (create gift code)
+     * Send gift (generate code and deduct points)
      */
     public function sendGift(Request $request)
     {
@@ -306,7 +313,8 @@ class WalletController extends Controller
             $validator = Validator::make($request->all(), [
                 'user_id' => 'required|exists:users,id',
                 'points' => 'required|integer|min:1',
-                'recipient' => 'required|string', // email or phone
+                'to_email' => 'nullable|email|max:255',
+                'to_phone' => 'nullable|string|max:50',
                 'message' => 'nullable|string|max:500',
             ]);
 
@@ -318,39 +326,51 @@ class WalletController extends Controller
                 ], 422);
             }
 
-            // Check if gift_codes table exists
-            if (!DB::getSchemaBuilder()->hasTable('gift_codes')) {
+            if (!$request->to_email && !$request->to_phone) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Gift system not available.',
-                ], 503);
+                    'message' => 'Either email or phone must be provided',
+                ], 422);
             }
 
-            $user = DB::table('users')->where('id', $request->user_id)->first();
-            $rewardPoints = property_exists($user, 'reward_points') ? (int)$user->reward_points : 
-                          (property_exists($user, 'reward') ? (int)$user->reward : 
-                          (property_exists($user, 'balance') ? (int)$user->balance : 0));
+            DB::beginTransaction();
 
-            if ($rewardPoints < $request->points) {
+            // Check user balance
+            $user = DB::table('users')->where('id', $request->user_id)->lockForUpdate()->first();
+            $currentPoints = (int)($user->reward_points ?? 0);
+            $pointsToSend = (int)$request->points;
+
+            if ($currentPoints < $pointsToSend) {
+                DB::rollBack();
                 return response()->json([
                     'status' => false,
-                    'message' => 'Insufficient points.',
+                    'message' => 'Insufficient points',
                 ], 400);
             }
 
             // Generate unique gift code
             $code = $this->generateGiftCode();
-            $expiresAt = date('Y-m-d H:i:s', strtotime('+14 days'));
 
-            DB::beginTransaction();
+            // Check if user exists by email or phone
+            $toUserId = null;
+            if ($request->to_email) {
+                $toUser = DB::table('users')->where('email', $request->to_email)->first();
+                $toUserId = $toUser->id ?? null;
+            } elseif ($request->to_phone) {
+                $toUser = DB::table('users')->where('phone', $request->to_phone)->first();
+                $toUserId = $toUser->id ?? null;
+            }
 
-            // Create gift code
+            // Create gift code (expires in 14 days)
+            $expiresAt = now()->addDays(14);
             $giftCodeId = DB::table('gift_codes')->insertGetId([
                 'code' => $code,
                 'from_user_id' => $request->user_id,
-                'points' => $request->points,
+                'to_email' => $request->to_email,
+                'to_phone' => $request->to_phone,
+                'to_user_id' => $toUserId,
+                'points' => $pointsToSend,
                 'message' => $request->message,
-                'recipient' => $request->recipient,
                 'status' => 'pending',
                 'expires_at' => $expiresAt,
                 'created_at' => now(),
@@ -358,36 +378,33 @@ class WalletController extends Controller
             ]);
 
             // Deduct points from sender
-            if (DB::getSchemaBuilder()->hasColumn('users', 'reward_points')) {
-                DB::table('users')->where('id', $request->user_id)->decrement('reward_points', $request->points);
-            } elseif (DB::getSchemaBuilder()->hasColumn('users', 'reward')) {
-                DB::table('users')->where('id', $request->user_id)->decrement('reward', $request->points);
-            } elseif (DB::getSchemaBuilder()->hasColumn('users', 'balance')) {
-                DB::table('users')->where('id', $request->user_id)->decrement('balance', $request->points);
-            }
-
-            // Create transaction record
-            if (DB::getSchemaBuilder()->hasTable('reward_transactions')) {
-                DB::table('reward_transactions')->insert([
-                    'user_id' => $request->user_id,
-                    'type' => 'gift_sent',
-                    'points' => -$request->points,
-                    'gift_code_id' => $giftCodeId,
-                    'note' => $request->recipient,
-                    'created_at' => now(),
+            DB::table('users')
+                ->where('id', $request->user_id)
+                ->update([
+                    'reward_points' => $currentPoints - $pointsToSend,
                     'updated_at' => now(),
                 ]);
-            }
+
+            // Create transaction record
+            DB::table('reward_transactions')->insert([
+                'user_id' => $request->user_id,
+                'type' => 'gift_sent',
+                'points' => -$pointsToSend,
+                'gift_code_id' => $giftCodeId,
+                'description' => 'Gift sent to ' . ($request->to_email ?: $request->to_phone),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
             DB::commit();
 
             return response()->json([
                 'status' => true,
-                'message' => 'Gift code created successfully.',
+                'message' => 'Gift sent successfully.',
                 'data' => [
                     'code' => $code,
-                    'points' => $request->points,
-                    'expires_at' => $expiresAt,
+                    'points' => $pointsToSend,
+                    'expires_at' => $expiresAt->toDateTimeString(),
                 ],
             ]);
 
@@ -395,7 +412,7 @@ class WalletController extends Controller
             DB::rollBack();
             return response()->json([
                 'status' => false,
-                'message' => 'Error creating gift code.',
+                'message' => 'Error sending gift.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -409,7 +426,7 @@ class WalletController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'user_id' => 'required|exists:users,id',
-                'code' => 'required|string|regex:/^[A-Z0-9]{4}-[A-Z0-9]{4}$/',
+                'code' => 'required|string|max:20',
             ]);
 
             if ($validator->fails()) {
@@ -420,86 +437,94 @@ class WalletController extends Controller
                 ], 422);
             }
 
-            // Check if gift_codes table exists
-            if (!DB::getSchemaBuilder()->hasTable('gift_codes')) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Gift system not available.',
-                ], 503);
-            }
+            DB::beginTransaction();
 
+            // Find gift code
             $code = strtoupper(trim($request->code));
-            $giftCode = DB::table('gift_codes')->where('code', $code)->first();
+            $giftCode = DB::table('gift_codes')
+                ->where('code', $code)
+                ->lockForUpdate()
+                ->first();
 
             if (!$giftCode) {
+                DB::rollBack();
                 return response()->json([
                     'status' => false,
-                    'message' => 'Invalid code.',
+                    'message' => 'Invalid code',
                 ], 404);
             }
 
+            // Check if code is already redeemed
             if ($giftCode->status === 'redeemed') {
+                DB::rollBack();
                 return response()->json([
                     'status' => false,
-                    'message' => 'Code already used.',
+                    'message' => 'Code already used',
                 ], 400);
             }
 
+            // Check if code is expired
+            if (now()->greaterThan($giftCode->expires_at)) {
+                DB::table('gift_codes')
+                    ->where('id', $giftCode->id)
+                    ->update(['status' => 'expired', 'updated_at' => now()]);
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'This gift code has expired',
+                ], 400);
+            }
+
+            // Check if user is trying to redeem their own gift
             if ($giftCode->from_user_id == $request->user_id) {
+                DB::rollBack();
                 return response()->json([
                     'status' => false,
-                    'message' => 'You cannot redeem your own gift.',
+                    'message' => 'You cannot redeem your own gift',
                 ], 400);
             }
 
-            if ($giftCode->expires_at && strtotime($giftCode->expires_at) < time()) {
-                DB::table('gift_codes')->where('id', $giftCode->id)->update(['status' => 'expired']);
-                return response()->json([
-                    'status' => false,
-                    'message' => 'This gift code has expired.',
-                ], 400);
-            }
-
-            DB::beginTransaction();
-
-            // Update gift code
-            DB::table('gift_codes')->where('id', $giftCode->id)->update([
-                'status' => 'redeemed',
-                'to_user_id' => $request->user_id,
-                'redeemed_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            // Add points to receiver
-            if (DB::getSchemaBuilder()->hasColumn('users', 'reward_points')) {
-                DB::table('users')->where('id', $request->user_id)->increment('reward_points', $giftCode->points);
-            } elseif (DB::getSchemaBuilder()->hasColumn('users', 'reward')) {
-                DB::table('users')->where('id', $request->user_id)->increment('reward', $giftCode->points);
-            } elseif (DB::getSchemaBuilder()->hasColumn('users', 'balance')) {
-                DB::table('users')->where('id', $request->user_id)->increment('balance', $giftCode->points);
-            }
-
-            // Create transaction record
-            if (DB::getSchemaBuilder()->hasTable('reward_transactions')) {
-                $fromUser = DB::table('users')->where('id', $giftCode->from_user_id)->first();
-                DB::table('reward_transactions')->insert([
-                    'user_id' => $request->user_id,
-                    'type' => 'gift_received',
-                    'points' => $giftCode->points,
-                    'gift_code_id' => $giftCode->id,
-                    'note' => $fromUser ? $fromUser->email : $giftCode->recipient,
-                    'created_at' => now(),
+            // Update gift code status
+            DB::table('gift_codes')
+                ->where('id', $giftCode->id)
+                ->update([
+                    'status' => 'redeemed',
+                    'to_user_id' => $request->user_id,
+                    'redeemed_at' => now(),
                     'updated_at' => now(),
                 ]);
-            }
+
+            // Add points to recipient
+            $user = DB::table('users')->where('id', $request->user_id)->lockForUpdate()->first();
+            $currentPoints = (int)($user->reward_points ?? 0);
+            $pointsToAdd = (int)$giftCode->points;
+
+            DB::table('users')
+                ->where('id', $request->user_id)
+                ->update([
+                    'reward_points' => $currentPoints + $pointsToAdd,
+                    'updated_at' => now(),
+                ]);
+
+            // Create transaction record
+            $fromUser = DB::table('users')->where('id', $giftCode->from_user_id)->first();
+            DB::table('reward_transactions')->insert([
+                'user_id' => $request->user_id,
+                'type' => 'gift_received',
+                'points' => $pointsToAdd,
+                'gift_code_id' => $giftCode->id,
+                'description' => 'Gift received from ' . ($fromUser->name ?? 'Unknown'),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
             DB::commit();
 
             return response()->json([
                 'status' => true,
-                'message' => 'Gift code redeemed successfully.',
+                'message' => 'Code redeemed successfully.',
                 'data' => [
-                    'points' => $giftCode->points,
+                    'points' => $pointsToAdd,
                 ],
             ]);
 
@@ -507,20 +532,85 @@ class WalletController extends Controller
             DB::rollBack();
             return response()->json([
                 'status' => false,
-                'message' => 'Error redeeming gift code.',
+                'message' => 'Error redeeming code.',
                 'error' => $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Get received gifts
+     * Award points on purchase (1 BHD = 1 point)
+     * This method should be called when an order is completed/delivered
      */
-    public function getReceivedGifts(Request $request)
+    public static function awardPointsOnPurchase($userId, $orderId, $amountBHD)
+    {
+        try {
+            // Check if reward_transactions table exists
+            $hasTransactionTable = Schema::hasTable('reward_transactions');
+            
+            if ($hasTransactionTable) {
+                // Check if points were already awarded for this order
+                $existingTxn = DB::table('reward_transactions')
+                    ->where('user_id', $userId)
+                    ->where('order_id', $orderId)
+                    ->where('type', 'purchase')
+                    ->first();
+
+                if ($existingTxn) {
+                    return false; // Already awarded
+                }
+            }
+
+            DB::beginTransaction();
+
+            // Calculate points (1 BHD = 1 point)
+            $pointsToAward = (int)floor($amountBHD);
+
+            if ($pointsToAward > 0) {
+                // Add points to user
+                $user = DB::table('users')->where('id', $userId)->lockForUpdate()->first();
+                $currentPoints = (int)($user->reward_points ?? 0);
+
+                DB::table('users')
+                    ->where('id', $userId)
+                    ->update([
+                        'reward_points' => $currentPoints + $pointsToAward,
+                        'updated_at' => now(),
+                    ]);
+
+                // Create transaction record (only if table exists)
+                if ($hasTransactionTable) {
+                    DB::table('reward_transactions')->insert([
+                        'user_id' => $userId,
+                        'type' => 'purchase',
+                        'points' => $pointsToAward,
+                        'order_id' => $orderId,
+                        'description' => 'Points earned from purchase',
+                        'amount_bhd' => $amountBHD,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            DB::commit();
+            return true;
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            \Log::error('Error awarding points on purchase: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Award points for completed order (can be called when order status changes)
+     */
+    public function awardPointsForOrder(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
-                'user_id' => 'required|exists:users,id',
+                'order_id' => 'required|exists:orders,id',
             ]);
 
             if ($validator->fails()) {
@@ -531,72 +621,103 @@ class WalletController extends Controller
                 ], 422);
             }
 
-            // Check if gift_codes table exists
-            if (!DB::getSchemaBuilder()->hasTable('gift_codes')) {
+            $order = Order::find($request->order_id);
+            if (!$order) {
                 return response()->json([
-                    'status' => true,
-                    'message' => 'Received gifts fetched successfully.',
-                    'data' => [],
-                ]);
+                    'status' => false,
+                    'message' => 'Order not found',
+                ], 404);
             }
 
-            $gifts = DB::table('gift_codes')
-                ->where('to_user_id', $request->user_id)
-                ->where('status', 'redeemed')
-                ->orderBy('redeemed_at', 'desc')
-                ->get()
-                ->map(function ($gift) {
-                    $fromUser = null;
-                    if ($gift->from_user_id) {
-                        $fromUser = DB::table('users')->where('id', $gift->from_user_id)->first();
+            // Only award points if order is completed or delivered
+            if (!in_array($order->status, ['completed', 'delivered'])) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Points can only be awarded for completed or delivered orders',
+                ], 400);
+            }
+
+            // Calculate order amount
+            $amountBHD = floatval($order->pay_amount ?? 0);
+            if ($amountBHD <= 0) {
+                // Try to calculate from cart if pay_amount is not available
+                $cart = is_string($order->cart) ? json_decode($order->cart, true) : $order->cart;
+                if ($cart) {
+                    $items = [];
+                    if (is_array($cart) && isset($cart[0]) && !isset($cart['items'])) {
+                        $items = $cart;
+                    } elseif (isset($cart['items'])) {
+                        $itemsData = $cart['items'];
+                        if (is_array($itemsData) && isset($itemsData[0])) {
+                            $items = $itemsData;
+                        } elseif (is_object($itemsData) || (is_array($itemsData) && !isset($itemsData[0]))) {
+                            $items = array_values($itemsData);
+                        }
                     }
+                    foreach ($items as $item) {
+                        $amount = 0;
+                        $qty = 1;
+                        if (isset($item['item']) && is_array($item['item'])) {
+                            $productData = $item['item'];
+                            $amount = isset($item['price']) ? floatval($item['price']) : (isset($productData['price']) ? floatval($productData['price']) : 0);
+                            $qty = isset($item['qty']) ? intval($item['qty']) : 1;
+                        } elseif (isset($item['id']) || isset($item['product_id'])) {
+                            $amount = isset($item['price']) ? floatval($item['price']) : 0;
+                            $qty = isset($item['qty']) ? intval($item['qty']) : (isset($item['quantity']) ? intval($item['quantity']) : 1);
+                        }
+                        $amountBHD += $amount * $qty;
+                    }
+                }
+            }
 
-                    return [
-                        'id' => $gift->id,
-                        'code' => $gift->code,
-                        'points' => $gift->points,
-                        'message' => $gift->message,
-                        'from' => $fromUser ? $fromUser->email : $gift->recipient,
-                        'redeemed_at' => $gift->redeemed_at ? date('Y-m-d', strtotime($gift->redeemed_at)) : null,
-                        'created_at' => $gift->created_at ? date('Y-m-d', strtotime($gift->created_at)) : null,
-                    ];
-                });
+            $result = self::awardPointsOnPurchase($order->user_id, $order->id, $amountBHD);
 
-            return response()->json([
-                'status' => true,
-                'message' => 'Received gifts fetched successfully.',
-                'data' => $gifts,
-            ]);
+            if ($result) {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Points awarded successfully.',
+                ]);
+            } else {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Points already awarded or error occurred',
+                ], 400);
+            }
 
         } catch (Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Error fetching received gifts.',
+                'message' => 'Error awarding points.',
                 'error' => $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Generate unique gift code
+     * Generate unique gift code (format: XXXX-XXXX)
      */
     private function generateGiftCode()
     {
-        $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1
-        $code = '';
-        
-        do {
-            $code = '';
-            for ($i = 0; $i < 4; $i++) {
-                $code .= $chars[random_int(0, strlen($chars) - 1)];
-            }
-            $code .= '-';
-            for ($i = 0; $i < 4; $i++) {
-                $code .= $chars[random_int(0, strlen($chars) - 1)];
-            }
-        } while (DB::table('gift_codes')->where('code', $code)->exists());
+        $characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1
+        $maxAttempts = 100;
 
-        return $code;
+        for ($i = 0; $i < $maxAttempts; $i++) {
+            $part1 = '';
+            $part2 = '';
+            for ($j = 0; $j < 4; $j++) {
+                $part1 .= $characters[random_int(0, strlen($characters) - 1)];
+                $part2 .= $characters[random_int(0, strlen($characters) - 1)];
+            }
+            $code = $part1 . '-' . $part2;
+
+            // Check if code already exists
+            $exists = DB::table('gift_codes')->where('code', $code)->exists();
+            if (!$exists) {
+                return $code;
+            }
+        }
+
+        throw new Exception('Failed to generate unique gift code');
     }
 }
 

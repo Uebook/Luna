@@ -373,22 +373,73 @@
         
         // Handle both array format and object format for cart
         if (is_array($cart) && isset($cart['items']) && is_array($cart['items'])) {
-            // Object format: {items: {key: {data}}}
+            // Object format: {items: {key: {item: {...}, price, qty}}}
             foreach ($cart['items'] as $key => $item) {
-                $userId = isset($item["user_id"]) ? $item["user_id"] : 0;
+                // Extract user_id - could be at root level or nested in item
+                $userId = isset($item["user_id"]) ? $item["user_id"] : (isset($item["item"]["user_id"]) ? $item["item"]["user_id"] : 0);
                 if (!isset($resultArray[$userId])) {
                     $resultArray[$userId] = [];
                 }
-                $resultArray[$userId][$key] = $item;
+                // If item structure doesn't exist, create it (for compatibility with flattened structure)
+                if (!isset($item['item']) && (isset($item['id']) || isset($item['product_id']))) {
+                    // Transform to expected structure if needed
+                    $normalizedItem = [
+                        'item' => [
+                            'id' => $item['id'] ?? $item['product_id'] ?? null,
+                            'name' => $item['name'] ?? 'Product',
+                            'slug' => $item['slug'] ?? '',
+                            'user_id' => $userId,
+                            'measure' => $item['measure'] ?? '',
+                            'photo' => $item['photo'] ?? $item['image'] ?? '',
+                        ],
+                        'price' => $item['price'] ?? 0,
+                        'item_price' => $item['price'] ?? 0,
+                        'qty' => $item['qty'] ?? $item['quantity'] ?? 1,
+                        'size' => $item['size'] ?? '',
+                        'color' => $item['color'] ?? '',
+                        'discount' => $item['discount'] ?? 0,
+                        'keys' => $item['keys'] ?? '',
+                        'values' => $item['values'] ?? '',
+                        'license' => $item['license'] ?? '',
+                        'affilate_user' => $item['affilate_user'] ?? 0,
+                    ];
+                    $resultArray[$userId][$key] = $normalizedItem;
+                } else {
+                    // Already has correct structure
+                    $resultArray[$userId][$key] = $item;
+                }
             }
         } elseif (is_array($cart) && isset($cart[0])) {
             // Array format: [{product_id, name, price, quantity}]
+            // Transform to match expected structure: {item: {...}, price, qty}
             foreach ($cart as $key => $item) {
-                $userId = isset($item["user_id"]) ? $item["user_id"] : 0;
+                // Normalize array format to match object format structure
+                $normalizedItem = [
+                    'item' => [
+                        'id' => $item['product_id'] ?? $item['id'] ?? null,
+                        'name' => $item['name'] ?? 'Product',
+                        'slug' => $item['slug'] ?? '',
+                        'user_id' => $item['user_id'] ?? 0,
+                        'measure' => $item['measure'] ?? '',
+                        'photo' => $item['photo'] ?? $item['image'] ?? '',
+                    ],
+                    'price' => $item['price'] ?? 0,
+                    'item_price' => $item['price'] ?? 0,
+                    'qty' => $item['quantity'] ?? $item['qty'] ?? 1,
+                    'size' => $item['size'] ?? '',
+                    'color' => $item['color'] ?? '',
+                    'discount' => $item['discount'] ?? 0,
+                    'keys' => $item['keys'] ?? '',
+                    'values' => $item['values'] ?? '',
+                    'license' => $item['license'] ?? '',
+                    'affilate_user' => $item['affilate_user'] ?? 0,
+                ];
+                
+                $userId = $normalizedItem['item']['user_id'];
                 if (!isset($resultArray[$userId])) {
                     $resultArray[$userId] = [];
                 }
-                $resultArray[$userId][$key] = $item;
+                $resultArray[$userId][$key] = $normalizedItem;
             }
         }
 
@@ -522,7 +573,7 @@
                                                 class="fa fa-eye"></i> {{ __('View License') }}</a>
                                         @endif
 
-                                        @if($product['affilate_user'] != 0)
+                                        @if(isset($product['affilate_user']) && $product['affilate_user'] != 0)
                                         <p>
                                             <strong>{{ __('Referral User') }} :</strong> {{
                                             \App\Models\User::find($product['affilate_user'])->name }}

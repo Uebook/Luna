@@ -1,5 +1,5 @@
 // src/screens/CheckoutScreen.js
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -15,11 +15,16 @@ import {
     TextInput,
     ActivityIndicator,
     I18nManager,
+    Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 import StandardHeader from '../components/StandardHeader';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { getImageUrl } from '../config/api';
+import api from '../services/api';
 
 let BlurViewOptional = View;
 try {
@@ -27,15 +32,8 @@ try {
     BlurViewOptional = BlurView;
 } catch (_) { }
 
-const ITEMS = [
-    { id: '1', title: 'Lorem ipsum dolor sit amet consectetur.', image: 'https://images.unsplash.com/photo-1520975916090-3105956dac38?q=80&w=600&auto=format&fit=crop', price: 17, qty: 1 },
-    { id: '2', title: 'Lorem ipsum dolor sit amet consectetur.', image: 'https://images.unsplash.com/photo-1547626740-02cb6eed9743?q=80&w=600&auto=format&fit=crop', price: 17, qty: 1 },
-];
-
-const VOUCHERS = [
-    { code: 'FIRST5', title: 'First Purchase', desc: '5% off for your next order', type: 'percent', value: 5, validUntil: '5.16.20' },
-    { code: 'GIFT15', title: 'Gift From Customer Care', desc: '15% off your next purchase', type: 'percent', value: 15, validUntil: '6.20.20' },
-];
+const CART_STORAGE_KEY = 'user_cart';
+const USER_STORAGE_KEY = 'luna_user';
 
 const isRTL = I18nManager.isRTL;
 const dirRow = { flexDirection: isRTL ? 'row-reverse' : 'row' };
@@ -59,53 +57,229 @@ const CheckoutScreen = ({ navigation }) => {
     };
     const styles = useMemo(() => createStyles(COLORS, isDark), [COLORS, isDark]);
     const { t } = useTranslation(['checkout', 'common']);
-    const CURRENCY = t('common:currency', { defaultValue: '₹' });
+    const CURRENCY = 'BHD';
 
+    // State
+    const [cartItems, setCartItems] = useState([]);
+    const [vouchers, setVouchers] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [voucherModal, setVoucherModal] = useState(false);
     const [addrModal, setAddrModal] = useState(false);
     const [contactModal, setContactModal] = useState(false);
-
     const [payState, setPayState] = useState('idle');
     const [payVisible, setPayVisible] = useState(false);
-
     const [selectedVoucher, setSelectedVoucher] = useState(null);
     const [shipping, setShipping] = useState('standard');
+    const [userId, setUserId] = useState(null);
 
-    const [country, setCountry] = useState('India');
-    const [addressLine, setAddressLine] = useState('26, Duong So 2, Thao Dien Ward, An Phu, District 2');
-    const [city, setCity] = useState('Ho Chi Minh city');
-    const [postcode, setPostcode] = useState('70000');
+    // Address and contact info
+    const [country, setCountry] = useState('Bahrain');
+    const [addressLine, setAddressLine] = useState('');
+    const [city, setCity] = useState('');
+    const [postcode, setPostcode] = useState('');
+    const [phone, setPhone] = useState('');
+    const [email, setEmail] = useState('');
 
-    const [phone, setPhone] = useState('+84932000000');
-    const [email, setEmail] = useState('amandamorgan@example.com');
-
-    const itemsTotal = useMemo(() => ITEMS.reduce((s, it) => s + it.price * it.qty, 0), []);
-    const shippingCost = shipping === 'standard' ? 0 : 12;
-    const discount = selectedVoucher?.type === 'percent' ? (itemsTotal * selectedVoucher.value) / 100 : 0;
-    const total = Math.max(0, itemsTotal - discount) + shippingCost;
-
-    const renderItem = ({ item }) => (
-        <View style={styles.itemRow}>
-            <View style={styles.thumbWrap}>
-                <Image source={{ uri: item.image }} style={styles.thumb} />
-                <View style={styles.qtyBadge}><Text style={styles.qtyText}>{item.qty}</Text></View>
-            </View>
-            <Text numberOfLines={2} style={styles.itemTitle}>{item.title}</Text>
-            <Text style={styles.itemPrice}>{CURRENCY}{item.price.toFixed(2)}</Text>
-        </View>
+    // Load data on focus
+    useFocusEffect(
+        useCallback(() => {
+            loadCheckoutData();
+        }, [])
     );
+
+    const loadCheckoutData = async () => {
+        try {
+            setLoading(true);
+            // Load cart items
+            const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+            const items = cartData ? JSON.parse(cartData) : [];
+            setCartItems(items);
+
+            // Load user data
+            const userData = await AsyncStorage.getItem(USER_STORAGE_KEY);
+            if (userData) {
+                const user = JSON.parse(userData);
+                setUserId(user.id || user.user_id);
+                setEmail(user.email || '');
+                setPhone(user.phone || '');
+            }
+
+            // Load saved addresses
+            const { getAddresses } = require('../storage/AddressStorage');
+            const addresses = await getAddresses();
+            if (addresses && addresses.length > 0) {
+                const primaryAddress = addresses.find(a => a.isPrimary) || addresses[0];
+                if (primaryAddress) {
+                    setCountry(primaryAddress.country || 'Bahrain');
+                    setAddressLine(primaryAddress.address || '');
+                    setCity(primaryAddress.city || '');
+                    setPostcode(primaryAddress.postcode || '');
+                    if (primaryAddress.phone) setPhone(primaryAddress.phone);
+                }
+            }
+
+            // Fetch vouchers
+            if (userId) {
+                try {
+                    const voucherResponse = await api.post('/voucher/list', { user_id: userId });
+                    if (voucherResponse.data?.status && voucherResponse.data?.data) {
+                        const activeVouchers = voucherResponse.data.data.filter(v => v.status === 'active' || v.status === 'pending');
+                        setVouchers(activeVouchers || []);
+                    }
+                } catch (error) {
+                    console.log('Error fetching vouchers:', error);
+                    setVouchers([]);
+                }
+            }
+        } catch (error) {
+            console.log('Error loading checkout data:', error);
+            Alert.alert('Error', 'Failed to load checkout data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Calculate totals dynamically
+    const itemsTotal = useMemo(() => {
+        return cartItems.reduce((sum, item) => sum + (parseFloat(item.price || 0) * parseInt(item.quantity || 1)), 0);
+    }, [cartItems]);
+
+    const shippingCost = shipping === 'standard' ? 0 : 12.000;
+    const discount = useMemo(() => {
+        if (!selectedVoucher) return 0;
+        if (selectedVoucher.type === 'percent') {
+            return (itemsTotal * parseFloat(selectedVoucher.value || 0)) / 100;
+        } else if (selectedVoucher.type === 'flat') {
+            return parseFloat(selectedVoucher.value || 0);
+        }
+        return 0;
+    }, [selectedVoucher, itemsTotal]);
+
+    const total = Math.max(0, itemsTotal - discount + shippingCost);
+
+    const renderItem = ({ item }) => {
+        const imageSource = item.image || item.photo || item.thumbnail || item.product_image;
+        const imageUri = imageSource ? getImageUrl(imageSource) : null;
+        const itemPrice = parseFloat(item.price || 0);
+        const itemQty = parseInt(item.quantity || 1);
+
+        return (
+            <View style={styles.itemRow}>
+                <View style={styles.thumbWrap}>
+                    {imageUri ? (
+                        <Image source={{ uri: imageUri }} style={styles.thumb} />
+                    ) : (
+                        <View style={[styles.thumb, { backgroundColor: COLORS.line, justifyContent: 'center', alignItems: 'center' }]}>
+                            <Ionicons name="image-outline" size={24} color={COLORS.muted} />
+                        </View>
+                    )}
+                    <View style={styles.qtyBadge}><Text style={styles.qtyText}>{itemQty}</Text></View>
+                </View>
+                <Text numberOfLines={2} style={styles.itemTitle}>{item.name || item.title || 'Product'}</Text>
+                <Text style={styles.itemPrice}>{CURRENCY} {itemPrice.toFixed(3)}</Text>
+            </View>
+        );
+    };
 
     const applyVoucher = v => { setSelectedVoucher(v); setVoucherModal(false); };
     const removeVoucher = () => setSelectedVoucher(null);
 
-    const fakeCharge = () => {
-        setTimeout(() => setPayState(Math.random() < 0.5 ? 'failed' : 'success'), 1600);
+    const clearCart = async () => {
+        try {
+            await AsyncStorage.removeItem('user_cart');
+            console.log('Cart cleared after successful checkout');
+        } catch (error) {
+            console.log('Error clearing cart:', error);
+        }
     };
-    const handlePay = () => { setPayVisible(true); setPayState('processing'); fakeCharge(); };
+
+    const handlePay = async () => {
+        // Validate required fields
+        if (!addressLine || !city || !phone || !email) {
+            Alert.alert('Missing Information', 'Please fill in all required address and contact information');
+            return;
+        }
+
+        if (cartItems.length === 0) {
+            Alert.alert('Empty Cart', 'Your cart is empty');
+            return;
+        }
+
+        setPayVisible(true);
+        setPayState('processing');
+
+        try {
+            // Prepare order data
+            const orderData = {
+                user_id: userId,
+                items: cartItems.map(item => ({
+                    product_id: item.id,
+                    quantity: item.quantity || 1,
+                    price: item.price,
+                    size: item.selectedSize,
+                    color: item.selectedColor,
+                })),
+                shipping_address: {
+                    country,
+                    address: addressLine,
+                    city,
+                    postcode,
+                },
+                contact_info: {
+                    phone,
+                    email,
+                },
+                shipping_method: shipping,
+                voucher_code: selectedVoucher?.code || null,
+                total_amount: total,
+            };
+
+            // Call checkout API
+            const response = await api.post('/order/checkout', orderData);
+            
+            if (response.data?.status) {
+                setPayState('success');
+                // Clear cart when payment is successful
+                await clearCart();
+            } else {
+                setPayState('failed');
+                Alert.alert('Payment Failed', response.data?.message || 'Failed to process payment');
+            }
+        } catch (error) {
+            console.log('Checkout error:', error);
+            setPayState('failed');
+            Alert.alert('Payment Failed', error.response?.data?.message || 'Failed to process payment. Please try again.');
+        }
+    };
     const tryAgain = () => { setPayState('processing'); fakeCharge(); };
-    const closePaymentModal = () => { setPayVisible(false); setPayState('idle'); };
+    const closePaymentModal = (wasSuccess = false) => { 
+        setPayVisible(false); 
+        setPayState('idle');
+        // Navigate back to home after successful payment
+        if (wasSuccess) {
+            setTimeout(() => {
+                navigation.navigate('NewHome');
+            }, 300);
+        }
+    };
 
     const goBack = () => { if (navigation?.canGoBack?.()) navigation.goBack(); };
+
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <StandardHeader 
+                    title={t('checkout:payment', 'Payment')}
+                    navigation={navigation}
+                    showGradient={true}
+                />
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={COLORS.brand} />
+                    <Text style={{ marginTop: 12, color: COLORS.sub }}>Loading checkout...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -125,8 +299,16 @@ const CheckoutScreen = ({ navigation }) => {
                             <Ionicons name="create-outline" size={18} color={COLORS.brand} />
                         </TouchableOpacity>
                     </View>
-                    <Text style={styles.sectionText}>{country}</Text>
-                    <Text style={[styles.sectionText, { marginTop: 2 }]}>{addressLine}, {city} {postcode}</Text>
+                    {country || addressLine || city ? (
+                        <>
+                            <Text style={styles.sectionText}>{country || 'Not set'}</Text>
+                            <Text style={[styles.sectionText, { marginTop: 2 }]}>
+                                {[addressLine, city, postcode].filter(Boolean).join(', ') || 'No address set'}
+                            </Text>
+                        </>
+                    ) : (
+                        <Text style={styles.sectionText}>No address set. Please add one.</Text>
+                    )}
                 </View>
 
                 {/* Contact Info */}
@@ -137,15 +319,21 @@ const CheckoutScreen = ({ navigation }) => {
                             <Ionicons name="create-outline" size={18} color={COLORS.brand} />
                         </TouchableOpacity>
                     </View>
-                    <Text style={styles.sectionText}>{phone}</Text>
-                    <Text style={[styles.sectionText, { marginTop: 2 }]}>{email}</Text>
+                    {phone || email ? (
+                        <>
+                            <Text style={styles.sectionText}>{phone || 'Not set'}</Text>
+                            <Text style={[styles.sectionText, { marginTop: 2 }]}>{email || 'Not set'}</Text>
+                        </>
+                    ) : (
+                        <Text style={styles.sectionText}>No contact information set. Please add one.</Text>
+                    )}
                 </View>
 
                 {/* Items + Voucher */}
                 <View style={[styles.rowBetween, { marginTop: 6, marginBottom: 8 }]}>
                     <View style={styles.itemsLeft}>
                         <Text style={styles.itemsLabel}>{t('checkout:items', 'Items')}</Text>
-                        <View style={styles.countPill}><Text style={styles.countText}>{ITEMS.length}</Text></View>
+                        <View style={styles.countPill}><Text style={styles.countText}>{cartItems.length}</Text></View>
                     </View>
                     {selectedVoucher ? (
                         <TouchableOpacity style={styles.appliedVoucherBtn} onPress={removeVoucher}>
@@ -160,8 +348,23 @@ const CheckoutScreen = ({ navigation }) => {
                     )}
                 </View>
 
-                <FlatList data={ITEMS} keyExtractor={i => i.id} renderItem={renderItem} scrollEnabled={false}
-                    ItemSeparatorComponent={() => <View style={{ height: 10 }} />} />
+                {loading ? (
+                    <View style={{ padding: 20, alignItems: 'center' }}>
+                        <ActivityIndicator size="large" color={COLORS.brand} />
+                    </View>
+                ) : cartItems.length === 0 ? (
+                    <View style={{ padding: 20, alignItems: 'center' }}>
+                        <Text style={{ color: COLORS.sub }}>Your cart is empty</Text>
+                    </View>
+                ) : (
+                    <FlatList 
+                        data={cartItems} 
+                        keyExtractor={(item, index) => `${item.id || index}-${item.selectedSize || ''}-${item.selectedColor || ''}`} 
+                        renderItem={renderItem} 
+                        scrollEnabled={false}
+                        ItemSeparatorComponent={() => <View style={{ height: 10 }} />} 
+                    />
+                )}
 
                 {/* Shipping Options */}
                 <Text style={styles.blockTitle}>{t('checkout:shipping_options', 'Shipping Options')}</Text>
@@ -183,7 +386,7 @@ const CheckoutScreen = ({ navigation }) => {
                                 <Text style={[styles.badgeText, { color: COLORS.brand }]}>{t('checkout:days_1_2', '1–2 days')}</Text>
                             </View>
                         </View>
-                        <Text style={styles.shipPrice}>{CURRENCY}12.00</Text>
+                        <Text style={styles.shipPrice}>{CURRENCY} 12.000</Text>
                     </TouchableOpacity>
 
                     <Text style={styles.deliveryNote}>{t('checkout:delivery_note', 'Delivered on or before Thursday, 23 April 2020')}</Text>
@@ -205,7 +408,7 @@ const CheckoutScreen = ({ navigation }) => {
             {/* Pay Bar */}
             <View style={styles.payBar}>
                 <Text style={styles.totalText}>
-                    {t('checkout:total', 'Total')} <Text style={styles.totalPrice}>{CURRENCY}{total.toFixed(2)}</Text>
+                    {t('checkout:total', 'Total')} <Text style={styles.totalPrice}>{CURRENCY} {total.toFixed(3)}</Text>
                 </Text>
                 <TouchableOpacity style={styles.payBtn} onPress={handlePay}>
                     <Text style={styles.payText}>{t('checkout:pay', 'Pay')}</Text>
@@ -219,26 +422,36 @@ const CheckoutScreen = ({ navigation }) => {
                         <Text style={styles.sheetTitle}>{t('checkout:active_vouchers', 'Active Vouchers')}</Text>
                         <TouchableOpacity onPress={() => setVoucherModal(false)}><Ionicons name="close" size={22} color={COLORS.text} /></TouchableOpacity>
                     </View>
-                    {VOUCHERS.map(v => {
-                        const isApplied = selectedVoucher?.code === v.code;
-                        return (
-                            <View key={v.code} style={styles.voucherTicket}>
-                                <View style={styles.vTopRow}>
-                                    <Text style={styles.vLabel}>{t('checkout:voucher', 'Voucher')}</Text>
-                                    <View style={styles.validPill}><Text style={styles.validText}>{t('checkout:valid_until', { date: v.validUntil })}</Text></View>
-                                </View>
-                                <View style={styles.vBody}>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.vTitle}>{v.title}</Text>
-                                        <Text style={styles.vDesc}>{v.desc}</Text>
+                    {vouchers.length === 0 ? (
+                        <View style={{ padding: 20, alignItems: 'center' }}>
+                            <Text style={{ color: COLORS.sub }}>No vouchers available</Text>
+                        </View>
+                    ) : (
+                        vouchers.map(v => {
+                            const isApplied = selectedVoucher?.code === v.code || selectedVoucher?.id === v.id;
+                            return (
+                                <View key={v.id || v.code} style={styles.voucherTicket}>
+                                    <View style={styles.vTopRow}>
+                                        <Text style={styles.vLabel}>{t('checkout:voucher', 'Voucher')}</Text>
+                                        {v.valid_until && (
+                                            <View style={styles.validPill}>
+                                                <Text style={styles.validText}>{t('checkout:valid_until', { date: v.valid_until })}</Text>
+                                            </View>
+                                        )}
                                     </View>
-                                    <TouchableOpacity style={[styles.vApplyBtn, isApplied && styles.vApplyBtnOn]} onPress={() => applyVoucher(v)}>
-                                        <Text style={[styles.vApplyText, isApplied && styles.vApplyTextOn]}>{isApplied ? t('checkout:applied', 'Applied') : t('checkout:apply', 'Apply')}</Text>
-                                    </TouchableOpacity>
+                                    <View style={styles.vBody}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.vTitle}>{v.title || v.name || v.code}</Text>
+                                            <Text style={styles.vDesc}>{v.description || v.desc || ''}</Text>
+                                        </View>
+                                        <TouchableOpacity style={[styles.vApplyBtn, isApplied && styles.vApplyBtnOn]} onPress={() => applyVoucher(v)}>
+                                            <Text style={[styles.vApplyText, isApplied && styles.vApplyTextOn]}>{isApplied ? t('checkout:applied', 'Applied') : t('checkout:apply', 'Apply')}</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
-                            </View>
-                        );
-                    })}
+                            );
+                        })
+                    )}
                 </View>
             </Modal>
 
@@ -257,7 +470,40 @@ const CheckoutScreen = ({ navigation }) => {
                     <TextInput value={city} onChangeText={setCity} placeholder={t('checkout:city_placeholder', 'City, State')} placeholderTextColor={COLORS.sub} style={styles.input} />
                     <Text style={styles.label}>{t('checkout:postcode', 'Postcode')}</Text>
                     <TextInput value={postcode} onChangeText={setPostcode} placeholder={t('checkout:postcode_placeholder', 'PIN / ZIP')} placeholderTextColor={COLORS.sub} style={styles.input} />
-                    <TouchableOpacity style={styles.primaryBtn} onPress={() => setAddrModal(false)}><Text style={styles.primaryText}>{t('checkout:save_changes', 'Save Changes')}</Text></TouchableOpacity>
+                    <TouchableOpacity 
+                        style={styles.primaryBtn} 
+                        onPress={async () => {
+                            // Save address to AsyncStorage
+                            try {
+                                const { getAddresses, setAddresses } = require('../storage/AddressStorage');
+                                const addresses = await getAddresses();
+                                const newAddress = {
+                                    id: Date.now().toString(),
+                                    fullName: 'User',
+                                    phone: phone,
+                                    address: addressLine,
+                                    city: city,
+                                    postcode: postcode,
+                                    country: country,
+                                    tag: 'home',
+                                    isPrimary: true,
+                                };
+                                // Update or add address
+                                const existingIndex = addresses.findIndex(a => a.isPrimary);
+                                if (existingIndex >= 0) {
+                                    addresses[existingIndex] = { ...addresses[existingIndex], ...newAddress };
+                                } else {
+                                    addresses.push(newAddress);
+                                }
+                                await setAddresses(addresses);
+                            } catch (error) {
+                                console.log('Error saving address:', error);
+                            }
+                            setAddrModal(false);
+                        }}
+                    >
+                        <Text style={styles.primaryText}>{t('checkout:save_changes', 'Save Changes')}</Text>
+                    </TouchableOpacity>
                 </View>
             </Modal>
 
@@ -272,7 +518,26 @@ const CheckoutScreen = ({ navigation }) => {
                     <TextInput value={phone} onChangeText={setPhone} placeholder={t('checkout:phone_placeholder', 'Phone number')} placeholderTextColor={COLORS.sub} style={styles.input} />
                     <Text style={styles.label}>{t('checkout:email', 'Email')}</Text>
                     <TextInput value={email} onChangeText={setEmail} placeholder={t('checkout:email_placeholder', 'Email address')} placeholderTextColor={COLORS.sub} style={styles.input} />
-                    <TouchableOpacity style={styles.primaryBtn} onPress={() => setContactModal(false)}><Text style={styles.primaryText}>{t('checkout:save_changes', 'Save Changes')}</Text></TouchableOpacity>
+                    <TouchableOpacity 
+                        style={styles.primaryBtn} 
+                        onPress={async () => {
+                            // Save contact info to user data
+                            try {
+                                const userData = await AsyncStorage.getItem(USER_STORAGE_KEY);
+                                if (userData) {
+                                    const user = JSON.parse(userData);
+                                    user.email = email;
+                                    user.phone = phone;
+                                    await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+                                }
+                            } catch (error) {
+                                console.log('Error saving contact info:', error);
+                            }
+                            setContactModal(false);
+                        }}
+                    >
+                        <Text style={styles.primaryText}>{t('checkout:save_changes', 'Save Changes')}</Text>
+                    </TouchableOpacity>
                 </View>
             </Modal>
 
@@ -295,7 +560,7 @@ const CheckoutScreen = ({ navigation }) => {
                             <Ionicons name="checkmark" size={28} color={COLORS.success} />
                             <Text style={styles.statusTitle}>{t('checkout:done', 'Done!')}</Text>
                             <Text style={styles.statusSub}>{t('checkout:payment_success', 'Your card has been successfully charged')}</Text>
-                            <TouchableOpacity style={styles.primaryBtn} onPress={closePaymentModal}><Text style={styles.primaryText}>{t('checkout:track_order', 'Track My Order')}</Text></TouchableOpacity>
+                            <TouchableOpacity style={styles.primaryBtn} onPress={() => closePaymentModal(true)}><Text style={styles.primaryText}>{t('checkout:track_order', 'Track My Order')}</Text></TouchableOpacity>
                         </>)}
                     </View>
                 </View>

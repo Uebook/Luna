@@ -204,7 +204,7 @@ export default function BlogListScreen({ route, navigation }) {
   };
 
   const handleBlogPress = (blog) => {
-    navigation?.navigate?.('BlogDetailScreen', { blog });
+    navigation?.navigate?.('BlogDetailScreen', { blog_id: blog.id, blog: blog });
   };
 
   return (

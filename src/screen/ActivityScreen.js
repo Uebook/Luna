@@ -223,9 +223,9 @@ export default function ActivityScreen() {
 
     const money = (n) => {
         try {
-            return new Intl.NumberFormat(lang, { style: 'currency', currency: 'USD' }).format(n);
+            return new Intl.NumberFormat(lang, { style: 'currency', currency: 'BHD' }).format(n);
         } catch {
-            return `$${Number(n).toFixed(2)}`;
+            return `BHD ${Number(n).toFixed(3)}`;
         }
     };
 

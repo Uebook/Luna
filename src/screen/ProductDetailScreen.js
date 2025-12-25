@@ -890,7 +890,7 @@ const ProductDetailScreen = () => {
 
     // These are now defined above before early returns - removed duplicates
 
-    // Format price with KWD
+    // Format price with BHD
     const formatPrice = (price) => {
         return `${parseFloat(price).toFixed(3)} BHD`;
     };

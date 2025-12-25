@@ -19,7 +19,7 @@ const AboutScreen = ({ navigation }) => {
     const isRTL = I18nManager.isRTL;
     const { theme } = useTheme();
     
-    const C = useMemo(() => ({
+    const COLORS = useMemo(() => ({
         bg: theme.bg,
         card: theme.card,
         text: theme.text,
@@ -29,7 +29,7 @@ const AboutScreen = ({ navigation }) => {
         brandSoft: theme.p4,
     }), [theme]);
     
-    const styles = useMemo(() => createStyles(C), [C]);
+    const styles = useMemo(() => createStyles(COLORS), [COLORS]);
 
     // Brand/app names used in the original screen
     const app = 'Luna';
@@ -45,7 +45,7 @@ const AboutScreen = ({ navigation }) => {
                     style={styles.backBtn}
                     activeOpacity={0.8}
                 >
-                    <Ionicons name="chevron-back" size={22} color={C.text} />
+                    <Ionicons name="chevron-back" size={22} color={COLORS.text} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{t('about:headerTitle', { app })}</Text>
                 <View style={{ width: 40, height: 40 }} />
@@ -71,7 +71,7 @@ const AboutScreen = ({ navigation }) => {
                         <Ionicons
                             name="mail"
                             size={16}
-                            color={C.brand}
+                            color={COLORS.brand}
                             style={{ marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}
                         />
                         <Text style={styles.email}>{t('about:email')}</Text>
@@ -90,8 +90,8 @@ const AboutScreen = ({ navigation }) => {
 export default AboutScreen;
 
 /* ---------------- styles ---------------- */
-const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: C.bg },
+const createStyles = (COLORS) => StyleSheet.create({
+    safe: { flex: 1, backgroundColor: COLORS.bg },
 
     /* header */
     header: {
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         borderBottomWidth: 1,
-        borderBottomColor: C.line,
+        borderBottomColor: COLORS.line,
         justifyContent: 'space-between',
         backgroundColor: '#fff',
     },
@@ -110,16 +110,16 @@ const styles = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
         backgroundColor: '#F3F4F6',
     },
-    headerTitle: { flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '800', color: C.text },
+    headerTitle: { flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '800', color: COLORS.text },
 
     /* body */
     content: { padding: 16, paddingBottom: 24 },
 
     card: {
-        backgroundColor: C.card,
+        backgroundColor: COLORS.card,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: C.line,
+        borderColor: COLORS.line,
         padding: 16,
         ...Platform.select({
             ios: { shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
@@ -127,12 +127,12 @@ const styles = StyleSheet.create({
         }),
     },
     logo: { width: 80, height: 80, alignSelf: 'center', marginBottom: 16 },
-    title: { fontSize: 20, fontWeight: '900', color: C.text, textAlign: 'center', marginBottom: 10 },
+    title: { fontSize: 20, fontWeight: '900', color: COLORS.text, textAlign: 'center', marginBottom: 10 },
 
-    paragraph: { fontSize: 14, color: C.sub, lineHeight: 20, marginBottom: 12 },
+    paragraph: { fontSize: 14, color: COLORS.sub, lineHeight: 20, marginBottom: 12 },
     emailRow: { alignItems: 'center', marginTop: 4 },
-    email: { color: C.brand, fontWeight: '800', fontSize: 14 },
+    email: { color: COLORS.brand, fontWeight: '800', fontSize: 14 },
 
     meta: { alignItems: 'center', marginTop: 14 },
-    metaText: { color: C.sub, fontSize: 12, fontWeight: '700' },
+    metaText: { color: COLORS.sub, fontSize: 12, fontWeight: '700' },
 });

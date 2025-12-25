@@ -355,6 +355,13 @@ Route::prefix('admin')->group(function () {
         Route::get('/gift-card/{id}/edit', 'Admin\GiftCardController@edit')->name('admin-giftcard-edit');
         Route::post('/gift-card/{id}/update', 'Admin\GiftCardController@update')->name('admin-giftcard-update');
         Route::delete('/gift-card/{id}/delete', 'Admin\GiftCardController@destroy')->name('admin-giftcard-delete');
+        
+        // Gift Card History
+        Route::get('/gift-card/history/sent', 'Admin\GiftCardController@historySent')->name('admin-giftcard-history-sent');
+        Route::get('/gift-card/history/sent/datatables', 'Admin\GiftCardController@datatablesSent')->name('admin-giftcard-history-sent-datatables');
+        Route::get('/gift-card/history/received', 'Admin\GiftCardController@historyReceived')->name('admin-giftcard-history-received');
+        Route::get('/gift-card/history/received/datatables', 'Admin\GiftCardController@datatablesReceived')->name('admin-giftcard-history-received-datatables');
+        Route::get('/gift-card/history/{id}/details', 'Admin\GiftCardController@historyDetails')->name('admin-giftcard-history-details');
     });
     //------------ ADMIN GIFT CARD SECTION ENDS------------
 

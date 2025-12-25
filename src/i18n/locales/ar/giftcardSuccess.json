@@ -19,5 +19,5 @@
     "receiptBody": "رقم الطلب {{orderId}}\nالمبلغ: {{amount}}",
     "trackTitle": "تتبّع",
     "trackMsg": "افتح شاشة التتبّع.",
-    "currency": "INR"
+    "currency": "BHD"
 }

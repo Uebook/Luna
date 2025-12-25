@@ -1,13 +1,11 @@
 -- SQL Script for Reward Points System
 -- Run this SQL if you prefer manual execution instead of migration
 
--- 1. Add reward_points column to users table (if it doesn't exist)
+-- 1. Add reward_points column to users table
+-- Note: Run this only if the column doesn't exist already
+-- Check first: DESCRIBE `users`; or SHOW COLUMNS FROM `users` LIKE 'reward_points';
 ALTER TABLE `users` 
-ADD COLUMN IF NOT EXISTS `reward_points` INT NOT NULL DEFAULT 0 AFTER `email`;
-
--- If your MySQL version doesn't support IF NOT EXISTS, use this instead:
--- ALTER TABLE `users` 
--- ADD COLUMN `reward_points` INT NOT NULL DEFAULT 0 AFTER `email`;
+ADD COLUMN `reward_points` INT NOT NULL DEFAULT 0 AFTER `email`;
 
 -- 2. Create gift_codes table
 CREATE TABLE IF NOT EXISTS `gift_codes` (

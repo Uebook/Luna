@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
     SafeAreaView,
     View,
@@ -75,35 +75,40 @@ export default function GiftCardTemplatePicker({ navigation, onBack, onNext }) {
     const fetchGiftCards = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await api.get('/gift-card/get-all');
+            const response = await api.post('/gift-card/list', {});
+            
+            console.log('Gift Cards API Response:', JSON.stringify(response.data, null, 2));
             
             if (response.data.status && response.data.gift_cards) {
                 // Map API data to match expected format
                 const formattedCards = response.data.gift_cards.map((card) => ({
                     id: card.id,
-                    title: card.title,
-                    description: card.description,
-                    image: card.image || null,
-                    price: card.price,
-                    value: card.value,
-                    discount: card.discount,
-                    validity_days: card.validity_days,
+                    title: card.title || card.name || 'Gift Card',
+                    description: card.description || '',
+                    image: card.image || card.photo || null,
+                    price: card.price || 0,
+                    value: card.value || card.price || 0,
+                    discount: card.discount || 0,
+                    validity_days: card.validity_days || 365,
                     // Map to category for filtering (you can adjust this based on your data)
-                    category: 'all', // Default category
+                    category: card.category || 'all', // Default category
                 }));
+                console.log('Formatted Gift Cards:', formattedCards.length);
                 setGiftCards(formattedCards);
             } else {
+                console.log('No gift cards in response');
                 setGiftCards([]);
             }
         } catch (error) {
-            console.log('Error fetching gift cards:', error);
+            console.error('Error fetching gift cards:', error);
+            console.error('Error response:', error.response?.data);
             setGiftCards([]);
         } finally {
             setLoading(false);
         }
     }, []);
 
-    React.useEffect(() => {
+    useEffect(() => {
         fetchGiftCards();
     }, [fetchGiftCards]);
 

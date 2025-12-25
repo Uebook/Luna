@@ -28,3 +28,6 @@ class ProductChatbotQuery extends Model
     }
 }
 
+
+
+

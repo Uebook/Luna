@@ -24,13 +24,9 @@ export const setStoredCurrency = async (label) => {
     try { await AsyncStorage.setItem(CURRENCY_STORAGE_KEY, label); } catch { }
 };
 
-/* ------- data (GCC + INR) ------- */
+/* ------- data (BHD only) ------- */
 const CURRENCIES = [
     { label: 'BHD' }, // Bahrain Dinar
-    { label: 'USD' }, // Bahrain Dinar
-    // { label: 'AED' }, // UAE Dirham
-    // { label: 'SAR' }, // Saudi Riyal
-    // { label: 'INR' }, // Indian Rupee
 ];
 
 const ChooseCurrencyScreen = ({ navigation }) => {

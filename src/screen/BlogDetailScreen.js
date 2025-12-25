@@ -1,14 +1,16 @@
 // src/screen/BlogDetailScreen.js
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image as RNImage,
-  Dimensions, Platform, StatusBar
+  Dimensions, Platform, StatusBar, ActivityIndicator, TouchableOpacity, FlatList
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { WebView } from 'react-native-webview';
 import { useTheme } from '../context/ThemeContext';
 import StandardHeader from '../components/StandardHeader';
+import api from '../services/api';
+import { getImageUrl } from '../config/api';
 
 const { width } = Dimensions.get('window');
 const BLOG_BASE = 'https://proteinbros.in/assets/images/blogs/';
@@ -21,7 +23,12 @@ const ensureAbs = (u, base = '') => {
 };
 
 export default function BlogDetailScreen({ route, navigation }) {
-  const { blog } = route?.params || {};
+  const { blog: initialBlog, blog_id } = route?.params || {};
+  const [blog, setBlog] = useState(initialBlog || null);
+  const [category, setCategory] = useState(null);
+  const [relatedBlogs, setRelatedBlogs] = useState([]);
+  const [loading, setLoading] = useState(!initialBlog);
+  const [error, setError] = useState(null);
   const [webViewHeight, setWebViewHeight] = useState(500);
 
   const { theme } = useTheme();
@@ -98,7 +105,68 @@ export default function BlogDetailScreen({ route, navigation }) {
       lineHeight: 24,
       color: THEME.ink,
     },
-  }), [THEME]);
+    excerptContainer: {
+      marginBottom: 20,
+      padding: 16,
+      backgroundColor: THEME.card,
+      borderRadius: 12,
+      borderLeftWidth: 4,
+      borderLeftColor: THEME.p1,
+    },
+    excerpt: {
+      fontSize: 16,
+      lineHeight: 24,
+      color: THEME.gray,
+      fontStyle: 'italic',
+    },
+    relatedSection: {
+      marginTop: 32,
+      paddingTop: 24,
+      borderTopWidth: 1,
+      borderTopColor: THEME.line,
+    },
+    relatedSectionTitle: {
+      fontSize: 22,
+      fontWeight: '900',
+      color: THEME.ink,
+      marginBottom: 16,
+    },
+    relatedList: {
+      paddingRight: 20,
+    },
+    relatedCard: {
+      width: width * 0.7,
+      marginRight: 16,
+      backgroundColor: THEME.card,
+      borderRadius: 12,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: THEME.line,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    relatedImage: {
+      width: '100%',
+      height: 150,
+    },
+    relatedContent: {
+      padding: 12,
+    },
+    relatedTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: THEME.ink,
+      marginBottom: 8,
+      lineHeight: 22,
+    },
+    relatedDate: {
+      fontSize: 12,
+      color: THEME.gray,
+    },
+  }), [THEME, width]);
 
   const imageUrl = blog?.photo ? ensureAbs(blog.photo, BLOG_BASE) : (blog?.image ? ensureAbs(blog.image, BLOG_BASE) : null);
   
@@ -119,6 +187,52 @@ export default function BlogDetailScreen({ route, navigation }) {
     return sanitized;
   };
   
+  // Fetch blog details from API
+  const fetchBlogDetails = useCallback(async () => {
+    const blogId = blog_id || initialBlog?.id;
+    if (!blogId) {
+      setError('Blog ID is required');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await api.post('/screen/blog/details', {
+        blog_id: blogId,
+      });
+
+      if (response.data.status && response.data.data) {
+        setBlog(response.data.data.blog);
+        setCategory(response.data.data.category);
+        setRelatedBlogs(response.data.data.related_blogs || []);
+      } else {
+        setError(response.data.message || 'Failed to load blog details');
+      }
+    } catch (err) {
+      console.error('Error fetching blog details:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to load blog details');
+    } finally {
+      setLoading(false);
+    }
+  }, [blog_id, initialBlog?.id]);
+
+  useEffect(() => {
+    if (blog_id) {
+      // Always fetch full details from API when blog_id is available
+      fetchBlogDetails();
+    } else if (initialBlog) {
+      // Fallback: use passed blog if no blog_id
+      setBlog(initialBlog);
+      setLoading(false);
+    } else {
+      setError('Blog ID is required');
+      setLoading(false);
+    }
+  }, [blog_id, initialBlog, fetchBlogDetails]);
+
   const htmlContent = sanitizeHtml(blog?.details || blog?.description || blog?.content || '');
   
   // Handle WebView messages to calculate height
@@ -132,6 +246,11 @@ export default function BlogDetailScreen({ route, navigation }) {
       // Ignore parsing errors
     }
   };
+
+  // Handle related blog press
+  const handleRelatedBlogPress = useCallback((relatedBlog) => {
+    navigation?.replace?.('BlogDetailScreen', { blog_id: relatedBlog.id });
+  }, [navigation]);
   
   // Injected JavaScript to measure content height and remove alerts
   const injectedJavaScript = `
@@ -177,12 +296,93 @@ export default function BlogDetailScreen({ route, navigation }) {
     true; // Required for iOS
   `;
 
+  // Related blog card component
+  const RelatedBlogCard = ({ item }) => {
+    const imageUrl = item.photo ? ensureAbs(item.photo, BLOG_BASE) : (item.image ? ensureAbs(item.image, BLOG_BASE) : null);
+    
+    return (
+      <TouchableOpacity
+        style={styles.relatedCard}
+        activeOpacity={0.9}
+        onPress={() => handleRelatedBlogPress(item)}
+      >
+        {imageUrl ? (
+          <RNImage
+            source={{ uri: imageUrl }}
+            style={styles.relatedImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.relatedImage, { backgroundColor: THEME.line, justifyContent: 'center', alignItems: 'center' }]}>
+            <Icon name="image-outline" size={30} color={THEME.gray} />
+          </View>
+        )}
+        <View style={styles.relatedContent}>
+          <Text style={styles.relatedTitle} numberOfLines={2}>{item.title || 'Untitled'}</Text>
+          <Text style={styles.relatedDate}>
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            }) : ''}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle={THEME.isDark ? 'light-content' : 'dark-content'} />
+        <StandardHeader
+          title="Blog Details"
+          navigation={navigation}
+        />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={THEME.p1} />
+          <Text style={{ marginTop: 16, color: THEME.gray }}>Loading blog...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !blog) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle={THEME.isDark ? 'light-content' : 'dark-content'} />
+        <StandardHeader
+          title="Blog Details"
+          navigation={navigation}
+        />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
+          <Icon name="alert-circle-outline" size={48} color={THEME.gray} />
+          <Text style={{ marginTop: 16, color: THEME.gray, textAlign: 'center' }}>
+            {error || 'Blog not found'}
+          </Text>
+          <TouchableOpacity
+            style={{
+              marginTop: 24,
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+              backgroundColor: THEME.p1,
+              borderRadius: 8,
+            }}
+            onPress={fetchBlogDetails}
+          >
+            <Text style={{ color: THEME.white, fontWeight: '600' }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle={THEME.isDark ? 'light-content' : 'dark-content'} />
       <StandardHeader
         title="Blog Details"
-        onBackPress={() => navigation?.goBack?.()}
+        navigation={navigation}
       />
       
       <ScrollView
@@ -207,22 +407,39 @@ export default function BlogDetailScreen({ route, navigation }) {
 
         {/* Content */}
         <View style={styles.content}>
-          {blog?.category && (
-            <Text style={styles.category}>{blog.category}</Text>
+          {(category?.name || blog?.category) && (
+            <Text style={styles.category}>{category?.name || blog.category}</Text>
           )}
           
           <Text style={styles.title}>{blog?.title || 'Untitled'}</Text>
           
           <View style={styles.meta}>
-            <Text style={styles.author}>{blog?.author || 'Team Luna'}</Text>
-            <Text style={styles.date}>
-              {blog?.created_at ? new Date(blog.created_at).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              }) : ''}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {blog?.author && (
+                <>
+                  <Icon name="person-outline" size={16} color={THEME.gray} />
+                  <Text style={styles.author}>{blog.author}</Text>
+                </>
+              )}
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Icon name="calendar-outline" size={16} color={THEME.gray} />
+              <Text style={styles.date}>
+                {blog?.created_at ? new Date(blog.created_at).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                }) : ''}
+              </Text>
+            </View>
           </View>
+
+          {/* Blog excerpt/description if available */}
+          {blog?.excerpt && (
+            <View style={styles.excerptContainer}>
+              <Text style={styles.excerpt}>{blog.excerpt}</Text>
+            </View>
+          )}
 
           {/* HTML Content */}
           {htmlContent ? (
@@ -325,6 +542,21 @@ export default function BlogDetailScreen({ route, navigation }) {
             </View>
           ) : (
             <Text style={styles.htmlContent}>No content available.</Text>
+          )}
+
+          {/* Related Blogs Section */}
+          {relatedBlogs.length > 0 && (
+            <View style={styles.relatedSection}>
+              <Text style={styles.relatedSectionTitle}>Related Articles</Text>
+              <FlatList
+                data={relatedBlogs}
+                keyExtractor={(item) => item.id?.toString() || `related-${item.title}`}
+                renderItem={({ item }) => <RelatedBlogCard item={item} />}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.relatedList}
+              />
+            </View>
           )}
         </View>
       </ScrollView>

@@ -14,7 +14,7 @@ import { useTheme } from '../context/ThemeContext';
 const TermsAndConditionsScreen = ({ navigation }) => {
     const { theme } = useTheme();
     
-    const C = useMemo(() => ({
+    const COLORS = useMemo(() => ({
         bg: theme.bg,
         card: theme.card,
         text: theme.text,
@@ -23,7 +23,7 @@ const TermsAndConditionsScreen = ({ navigation }) => {
         brand: theme.p1,
     }), [theme]);
     
-    const styles = useMemo(() => createStyles(C), [C]);
+    const styles = useMemo(() => createStyles(COLORS), [COLORS]);
     
     return (
         <SafeAreaView style={styles.container}>
@@ -34,7 +34,7 @@ const TermsAndConditionsScreen = ({ navigation }) => {
                     style={styles.backBtn}
                     activeOpacity={0.7}
                 >
-                    <Ionicons name="chevron-back" size={22} color={C.text} />
+                    <Ionicons name="chevron-back" size={22} color={COLORS.text} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Terms & Conditions</Text>
                 {/* spacer keeps title centered */}
@@ -75,7 +75,7 @@ const TermsAndConditionsScreen = ({ navigation }) => {
 
 export default TermsAndConditionsScreen;
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
     container: { flex: 1, backgroundColor: '#fff' },
 
     /* Header */
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     },
     text: {
         fontSize: 14,
-        color: '#555',
+        color: COLORS.sub || '#555',
         lineHeight: 20,
     },
 });

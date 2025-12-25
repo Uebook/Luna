@@ -22,3 +22,6 @@ class ProductFaq extends Model
     }
 }
 
+
+
+

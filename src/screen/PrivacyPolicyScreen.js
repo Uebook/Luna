@@ -14,7 +14,7 @@ import { useTheme } from '../context/ThemeContext';
 const PrivacyPolicyScreen = ({ navigation }) => {
     const { theme } = useTheme();
     
-    const C = useMemo(() => ({
+    const COLORS = useMemo(() => ({
         bg: theme.bg,
         card: theme.card,
         text: theme.text,
@@ -23,7 +23,7 @@ const PrivacyPolicyScreen = ({ navigation }) => {
         brand: theme.p1,
     }), [theme]);
     
-    const styles = useMemo(() => createStyles(C), [C]);
+    const styles = useMemo(() => createStyles(COLORS), [COLORS]);
     
     return (
         <SafeAreaView style={styles.container}>
@@ -34,7 +34,7 @@ const PrivacyPolicyScreen = ({ navigation }) => {
                     style={styles.backBtn}
                     activeOpacity={0.7}
                 >
-                    <Ionicons name="chevron-back" size={22} color={C.text} />
+                    <Ionicons name="chevron-back" size={22} color={COLORS.text} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Privacy Policy</Text>
                 <View style={{ width: 40, height: 40 }} />
@@ -110,7 +110,7 @@ const PrivacyPolicyScreen = ({ navigation }) => {
 
 export default PrivacyPolicyScreen;
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS) => StyleSheet.create({
     container: { flex: 1, backgroundColor: '#fff' },
 
     /* Header */
@@ -135,5 +135,5 @@ const styles = StyleSheet.create({
     content: { padding: 20, paddingBottom: 28 },
     title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: '#000' },
     sectionTitle: { fontSize: 16, fontWeight: 'bold', marginTop: 16, marginBottom: 6, color: '#333' },
-    text: { fontSize: 14, color: '#555', lineHeight: 20 },
+    text: { fontSize: 14, color: COLORS.sub || '#555', lineHeight: 20 },
 });

@@ -362,7 +362,7 @@ export default function ToReceiveOrdersScreen({ navigation }) {
       );
       return res === PermissionsAndroid.RESULTS.GRANTED;
     } catch { return false; }
-  };
+  }, []);
 
   const pickPhotos = useCallback(async () => {
     const ok = await requestGalleryPermission();

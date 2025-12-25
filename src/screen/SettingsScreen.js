@@ -173,18 +173,9 @@ const getLanguageDisplayName = (langCode) => {
 // Helper function to get display names for currency codes
 const getCurrencyDisplayName = (currencyCode) => {
   const currencies = {
-    'USD': 'US Dollar ($)',
     'BHD': 'Bahraini Dinar (.د.ب)',
-    'EUR': 'Euro (€)',
-    'GBP': 'British Pound (£)',
-    'INR': 'Indian Rupee (₹)',
-    'AED': 'UAE Dirham (د.إ)',
-    'SAR': 'Saudi Riyal (﷼)',
-    'CAD': 'Canadian Dollar (C$)',
-    'AUD': 'Australian Dollar (A$)',
-    'JPY': 'Japanese Yen (¥)',
   };
-  return currencies[currencyCode] || currencyCode || 'Select Currency';
+  return currencies[currencyCode] || 'BHD';
 };
 
 // Helper function to get display names for countries
