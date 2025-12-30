@@ -125,8 +125,8 @@ const DUMMY_PRODUCTS_AR = [
         { label: 'المنشأ', value: 'الولايات المتحدة' }
       ],
       variations: [
-        { id: 'v1', label: '250غ', priceBHD: 1.900, gallery: ['https://images.unsplash.com/photo-1486887396153-fa416526c108?q=80&w=1200&auto=format&fit=crop'], sizes: [] },
-        { id: 'v2', label: '500غ', priceBHD: 3.200, gallery: ['https://images.unsplash.com/photo-1475855581690-80accde3ae2b?q=80&w=1200&auto=format&fit=crop'], sizes: [] }
+        { id: 'v1', label: '250غ', priceKWD: 1.900, gallery: ['https://images.unsplash.com/photo-1486887396153-fa416526c108?q=80&w=1200&auto=format&fit=crop'], sizes: [] },
+        { id: 'v2', label: '500غ', priceKWD: 3.200, gallery: ['https://images.unsplash.com/photo-1475855581690-80accde3ae2b?q=80&w=1200&auto=format&fit=crop'], sizes: [] }
       ],
       reviews: [
         { id: 'r1', name: 'نورة', avatar: 'https://randomuser.me/api/portraits/women/65.jpg', rating: 5, text: 'طازج ومقرمش.', date: '20 يوليو 2025' }

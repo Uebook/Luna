@@ -26,6 +26,7 @@ import StandardHeader from '../components/StandardHeader';
 import { SkeletonProductDetailScreen } from '../components/SkeletonLoader';
 import { useSkeletonLoader } from '../hooks/useSkeletonLoader';
 import i18n from '../i18n';
+import { homeAPI, getUserId } from '../services/api';
 
 const { width: W, height: H } = Dimensions.get('window');
 const HERO_H = Math.min(420, H * 0.5);
@@ -35,6 +36,7 @@ const USER_STORAGE_KEY = 'luna_user';
 
 // Hero Image Component with error handling - defined outside to avoid hooks issues
 const HeroImageItem = React.memo(({ uri, index, onFirstImageLoad, THEME, styles }) => {
+    console.log()
     const [imageError, setImageError] = React.useState(false);
     const [localLoading, setLocalLoading] = React.useState(index === 0);
 
@@ -90,11 +92,11 @@ const ProductDetailScreen = () => {
 
     const [product, setProduct] = useState(routeProduct);
     const [galleries, setGalleries] = useState(routeGalleries);
-    const [ratings, setRatings] = useState([]);
+    const [productLoading, setProductLoading] = useState(!routeProduct && !!routeProductId);
+    const [reviews, setReviews] = useState([]);
     const [averageRating, setAverageRating] = useState(0);
     const [relatedProducts, setRelatedProducts] = useState([]);
-    const [relatedProductsLoading, setRelatedProductsLoading] = useState(false);
-    const [productLoading, setProductLoading] = useState(!routeProduct && !!routeProductId);
+    const [reviewsLoading, setReviewsLoading] = useState(false);
 
     const [galleryIndex, setGalleryIndex] = useState(0);
     const [imageLoading, setImageLoading] = useState(true);
@@ -186,15 +188,9 @@ const ProductDetailScreen = () => {
             console.log('Product data routeProductId:', routeProductId);
             try {
                 setProductLoading(true);
-                const response = await fetch('https://luna-api.proteinbros.in/public/api/v1/screen/products/details', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({ product_id: routeProductId }),
-                });
-                const data = await response.json();
+                const userId = await getUserId();
+                const response = await homeAPI.getProductDetails(routeProductId, userId);
+                const data = response.data;
 
                 console.log('📦 Product data received:', data?.galleries);
                 if (data.status) {
@@ -241,15 +237,23 @@ const ProductDetailScreen = () => {
                         console.log('⚠️ Galleries is not an array:', data.galleries);
                         setGalleries([]);
                     }
-                    // Set ratings from API
+                    // Set reviews and ratings
                     if (Array.isArray(data.ratings)) {
-                        setRatings(data.ratings);
+                        console.log('⭐ Setting reviews with', data.ratings.length, 'items');
+                        setReviews(data.ratings);
                     } else {
-                        setRatings([]);
+                        setReviews([]);
                     }
                     // Set average rating
                     if (data.average_rating !== undefined) {
                         setAverageRating(data.average_rating);
+                    }
+                    // Set related products
+                    if (Array.isArray(data.related_products)) {
+                        console.log('🛍️ Setting related products with', data.related_products.length, 'items');
+                        setRelatedProducts(data.related_products);
+                    } else {
+                        setRelatedProducts([]);
                     }
                 } else {
                     console.log('❌ Invalid API response:', data);
@@ -263,55 +267,6 @@ const ProductDetailScreen = () => {
         };
         fetchProductDetails();
     }, [routeProductId, routeProduct]);
-
-    // Fetch related products (from same category or brand)
-    useEffect(() => {
-        const fetchRelatedProducts = async () => {
-            if (!product?.id || !product?.category_id) return;
-
-            try {
-                setRelatedProductsLoading(true);
-                // Fetch products from same category
-                const response = await fetch('https://luna-api.proteinbros.in/public/api/v1/screen/products', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        category_id: product.category_id,
-                        limit: 8, // Get 8 related products
-                    }),
-                });
-
-                const data = await response.json();
-                if (data.status && Array.isArray(data.products)) {
-                    // Filter out current product and take first 4
-                    const filtered = data.products
-                        .filter(p => p.id !== product.id)
-                        .slice(0, 4)
-                        .map(p => ({
-                            id: p.id.toString(),
-                            name: p.name || 'Product',
-                            price: p.price || 0,
-                            previous_price: p.previous_price || null,
-                            image: p.photo ? (p.photo.startsWith('http') ? p.photo : `https://proteinbros.in/assets/images/products/${p.photo}`) : null,
-                            photo: p.photo,
-                            rawProduct: p,
-                        }));
-                    setRelatedProducts(filtered);
-                }
-            } catch (error) {
-                console.log('Error fetching related products:', error);
-            } finally {
-                setRelatedProductsLoading(false);
-            }
-        };
-
-        if (product?.id && product?.category_id) {
-            fetchRelatedProducts();
-        }
-    }, [product?.id, product?.category_id]);
 
     // Load user data on component mount
     useEffect(() => {
@@ -344,23 +299,11 @@ const ProductDetailScreen = () => {
         }
 
         try {
-            const response = await fetch('https://luna-api.proteinbros.in/public/api/v1/screen/recently-viewed/add', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    user_id: userId,
-                    product_id: product.id
-                })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                console.log('Recently viewed API error:', data);
+            const response = await homeAPI.addRecentlyViewed(userId, product.id);
+            if (response.data?.status) {
+                console.log('Added to recently viewed:', response.data);
             } else {
-                console.log('Added to recently viewed:', data);
+                console.log('Recently viewed API error:', response.data);
             }
         } catch (error) {
             console.log('Error adding to recently viewed:', error);
@@ -381,20 +324,10 @@ const ProductDetailScreen = () => {
 
         setWishlistLoading(true);
         try {
-            const response = await fetch('https://luna-api.proteinbros.in/public/api/v1/screen/wishlist/toggle', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    user_id: userId,
-                    product_id: product.id
-                })
-            });
+            const response = await homeAPI.toggleWishlist(userId, product.id);
+            const data = response.data;
 
-            const data = await response.json();
-
-            if (response.ok) {
+            if (data?.status) {
                 setIsWishlisted(!isWishlisted);
                 Alert.alert(
                     isWishlisted ? 'Removed from Wishlist' : 'Added to Wishlist',
@@ -403,11 +336,11 @@ const ProductDetailScreen = () => {
                         : 'Product has been added to your wishlist!'
                 );
             } else {
-                Alert.alert('Error', data.message || 'Failed to update wishlist');
+                Alert.alert('Error', data?.message || 'Failed to update wishlist');
             }
         } catch (error) {
             console.log('Wishlist API error:', error);
-            Alert.alert('Error', 'Failed to update wishlist. Please try again.');
+            Alert.alert('Error', error.response?.data?.message || 'Failed to update wishlist. Please try again.');
         } finally {
             setWishlistLoading(false);
         }
@@ -420,10 +353,21 @@ const ProductDetailScreen = () => {
             return;
         }
 
-        // For now, we'll set a default state
-        // You can implement actual API call to check wishlist status here
-        // Example: fetch user's wishlist and check if product exists
-        setIsWishlisted(false);
+        try {
+            const response = await homeAPI.getWishlist(userId);
+            if (response.data?.status && Array.isArray(response.data?.data)) {
+                const wishlistItems = response.data.data;
+                const isInWishlist = wishlistItems.some(item =>
+                    (item.product_id || item.id) === product.id
+                );
+                setIsWishlisted(isInWishlist);
+            } else {
+                setIsWishlisted(false);
+            }
+        } catch (error) {
+            console.log('Error checking wishlist status:', error);
+            setIsWishlisted(false);
+        }
     }, [userId, product?.id]);
 
     // Parse size and color data from API - MUST be before early returns (Rules of Hooks)
@@ -660,40 +604,6 @@ const ProductDetailScreen = () => {
         }
     }, [product?.id, galleries?.length]);
 
-    // Format ratings from API to match component format - MUST be before early returns
-    const formattedReviews = useMemo(() => {
-        if (!Array.isArray(ratings) || ratings.length === 0) return [];
-        
-        return ratings.map(rating => {
-            // Calculate relative date
-            const reviewDate = rating.review_date ? new Date(rating.review_date) : new Date();
-            const now = new Date();
-            const diffTime = Math.abs(now - reviewDate);
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            
-            let dateStr = '';
-            if (diffDays === 0) dateStr = 'Today';
-            else if (diffDays === 1) dateStr = '1 day ago';
-            else if (diffDays < 7) dateStr = `${diffDays} days ago`;
-            else if (diffDays < 30) {
-                const weeks = Math.floor(diffDays / 7);
-                dateStr = `${weeks} week${weeks > 1 ? 's' : ''} ago`;
-            } else {
-                const months = Math.floor(diffDays / 30);
-                dateStr = `${months} month${months > 1 ? 's' : ''} ago`;
-            }
-
-            return {
-                id: rating.id,
-                user: rating.user_name || 'Anonymous',
-                rating: rating.rating || 0,
-                comment: rating.review || '',
-                date: dateStr,
-                review_date: rating.review_date,
-            };
-        });
-    }, [ratings]);
-
     // Handle missing product data - AFTER all hooks
     if (!product) {
         if (initialLoading || productLoading) {
@@ -740,11 +650,43 @@ const ProductDetailScreen = () => {
 
     const requiresSelection = hasSizes || hasColors;
 
-    // Delivery options for Bahrain (can be made dynamic from product data if available)
+    // Delivery options for Bahrain
     const deliveryOptions = [
         { id: 'standard', name: 'Standard 5-7 days', price: 3.00, days: '5-7 days' },
         { id: 'express', name: 'Express 1-2 days', price: 12.00, days: '1-2 days' }
     ];
+
+    // Helper function to format review date
+    const formatReviewDate = (dateString) => {
+        if (!dateString) return 'Recently';
+        try {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffTime = Math.abs(now - date);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Yesterday';
+            if (diffDays < 7) return `${diffDays} days ago`;
+            if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+            if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+            return `${Math.floor(diffDays / 365)} years ago`;
+        } catch (e) {
+            return 'Recently';
+        }
+    };
+
+    // Helper function to get product image URL
+    const getProductImageUrl = (product) => {
+        if (!product) return 'https://via.placeholder.com/200x200';
+        if (product.photo && product.photo.startsWith('http')) return product.photo;
+        if (product.image && product.image.startsWith('http')) return product.image;
+        if (product.thumbnail && product.thumbnail.startsWith('http')) return product.thumbnail;
+        if (product.photo) return `https://proteinbros.in/assets/images/products/${product.photo}`;
+        if (product.image) return `https://proteinbros.in/assets/images/products/${product.image}`;
+        if (product.thumbnail) return `https://proteinbros.in/assets/images/products/${product.thumbnail}`;
+        return 'https://via.placeholder.com/200x200';
+    };
 
 
     // These hooks are now defined above before early returns
@@ -890,7 +832,7 @@ const ProductDetailScreen = () => {
 
     // These are now defined above before early returns - removed duplicates
 
-    // Format price with BHD
+    // Format price with KWD
     const formatPrice = (price) => {
         return `${parseFloat(price).toFixed(3)} BHD`;
     };
@@ -945,13 +887,30 @@ const ProductDetailScreen = () => {
         );
     };
 
-    const renderPopularProduct = ({ item }) => (
-        <View style={styles.popularProductCard}>
-            <Image source={{ uri: item.image }} style={styles.popularProductImage} />
-            <Text style={styles.popularProductName} numberOfLines={2}>{item.name}</Text>
-            <Text style={styles.popularProductPrice}>{(item.price)}</Text>
-        </View>
-    );
+    const renderPopularProduct = ({ item }) => {
+        const imageUrl = getImageUrl(item.photo || item.image || item.thumbnail, false);
+        return (
+            <TouchableOpacity
+                style={styles.popularProductCard}
+                onPress={() => {
+                    navigation.push('ProductDetailScreen', {
+                        productId: item.id || item.product_id,
+                    });
+                }}
+            >
+                <Image
+                    source={imageUrl ? { uri: imageUrl } : require('../assets/image1.png')}
+                    style={styles.popularProductImage}
+                />
+                <Text style={styles.popularProductName} numberOfLines={2}>
+                    {item.name || item.title || 'Product'}
+                </Text>
+                <Text style={styles.popularProductPrice}>
+                    {item.price ? `${item.price} BHD` : 'N/A'}
+                </Text>
+            </TouchableOpacity>
+        );
+    };
 
     // Size Guide Modal for Bahrain
     const SizeGuideModal = () => (
@@ -1033,29 +992,31 @@ const ProductDetailScreen = () => {
                         </TouchableOpacity>
                     </View>
                     <ScrollView style={styles.reviewsContent}>
-                        <Text style={styles.reviewsCount}>{formattedReviews.length} Reviews</Text>
-                        {formattedReviews.length === 0 ? (
-                            <Text style={styles.noReviewsText}>No reviews yet. Be the first to review!</Text>
-                        ) : (
-                            formattedReviews.map((review) => (
-                            <View key={review.id} style={styles.reviewItem}>
-                                <View style={styles.reviewHeader}>
-                                    <Text style={styles.reviewUser}>{review.user}</Text>
-                                    <Text style={styles.reviewDate}>{review.date}</Text>
+                        <Text style={styles.reviewsCount}>{reviews.length} Reviews</Text>
+                        {reviews.length > 0 ? (
+                            reviews.map((review) => (
+                                <View key={review.id} style={styles.reviewItem}>
+                                    <View style={styles.reviewHeader}>
+                                        <Text style={styles.reviewUser}>{review.user_name || 'Anonymous'}</Text>
+                                        <Text style={styles.reviewDate}>{formatReviewDate(review.review_date)}</Text>
+                                    </View>
+                                    <View style={styles.ratingStars}>
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <Icon
+                                                key={star}
+                                                name="star"
+                                                size={16}
+                                                color={star <= (review.rating || 0) ? "#FFD700" : THEME.line}
+                                            />
+                                        ))}
+                                    </View>
+                                    <Text style={styles.reviewComment}>{review.review || 'No comment provided'}</Text>
                                 </View>
-                                <View style={styles.ratingStars}>
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                        <Icon
-                                            key={star}
-                                            name="star"
-                                            size={16}
-                                            color={star <= review.rating ? "#FFD700" : THEME.line}
-                                        />
-                                    ))}
-                                </View>
-                                <Text style={styles.reviewComment}>{review.comment}</Text>
-                            </View>
                             ))
+                        ) : (
+                            <View style={styles.emptyState}>
+                                <Text style={styles.emptyStateText}>No reviews yet. Be the first to review!</Text>
+                            </View>
                         )}
                     </ScrollView>
                 </View>
@@ -1415,57 +1376,56 @@ const ProductDetailScreen = () => {
                         </TouchableOpacity>
                     </View>
                     <View style={styles.ratingSummary}>
-                        <Text style={styles.rating}>{averageRating > 0 ? `${averageRating}/5` : '0/5'}</Text>
-                        <Text style={styles.ratingCount}>({formattedReviews.length} reviews)</Text>
+                        <Text style={styles.rating}>{averageRating > 0 ? `${averageRating.toFixed(1)}/5` : 'No rating'}</Text>
+                        <Text style={styles.ratingCount}>({reviews.length} {reviews.length === 1 ? 'review' : 'reviews'})</Text>
                     </View>
 
-                    {formattedReviews.slice(0, 1).map((review) => (
-                        <View key={review.id} style={styles.reviewItem}>
-                            <View style={styles.reviewHeader}>
-                                <Text style={styles.reviewUser}>{review.user}</Text>
-                                <Text style={styles.reviewDate}>{review.date}</Text>
+                    {reviews.length > 0 ? (
+                        reviews.slice(0, 1).map((review) => (
+                            <View key={review.id} style={styles.reviewItem}>
+                                <View style={styles.reviewHeader}>
+                                    <Text style={styles.reviewUser}>{review.user_name || 'Anonymous'}</Text>
+                                    <Text style={styles.reviewDate}>{formatReviewDate(review.review_date)}</Text>
+                                </View>
+                                <View style={styles.ratingStars}>
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <Icon
+                                            key={star}
+                                            name="star"
+                                            size={16}
+                                            color={star <= (review.rating || 0) ? "#FFD700" : THEME.line}
+                                        />
+                                    ))}
+                                </View>
+                                <Text style={styles.reviewComment}>{review.review || 'No comment provided'}</Text>
                             </View>
-                            <View style={styles.ratingStars}>
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                    <Icon
-                                        key={star}
-                                        name="star"
-                                        size={16}
-                                        color={star <= review.rating ? "#FFD700" : THEME.line}
-                                    />
-                                ))}
-                            </View>
-                            <Text style={styles.reviewComment}>{review.comment}</Text>
+                        ))
+                    ) : (
+                        <View style={styles.emptyState}>
+                            <Text style={styles.emptyStateText}>No reviews yet. Be the first to review!</Text>
                         </View>
-                    ))}
+                    )}
                 </View>
 
                 {/* MOST POPULAR */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Most Popular</Text>
-                        <TouchableOpacity>
-                            <Text style={styles.seeAllText}>See All</Text>
-                        </TouchableOpacity>
-                    </View>
-                    {relatedProductsLoading ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="small" color={THEME.p1} />
+                {relatedProducts.length > 0 && (
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Most Popular</Text>
+                            <TouchableOpacity>
+                                <Text style={styles.seeAllText}>See All</Text>
+                            </TouchableOpacity>
                         </View>
-                    ) : (
                         <FlatList
                             horizontal
-                            data={relatedProducts}
-                            keyExtractor={(item) => item.id}
+                            data={relatedProducts.slice(0, 10)}
+                            keyExtractor={(item) => String(item.id || item.product_id)}
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={styles.popularList}
                             renderItem={renderPopularProduct}
-                            ListEmptyComponent={
-                                <Text style={styles.emptyText}>No related products found</Text>
-                            }
                         />
-                    )}
-                </View>
+                    </View>
+                )}
 
                 {/* PROMO BANNERS */}
                 <View style={styles.promoSection}>
@@ -1482,32 +1442,30 @@ const ProductDetailScreen = () => {
                 {/* YOU MIGHT LIKE */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>You Might Like</Text>
-                    {relatedProductsLoading ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="small" color={THEME.p1} />
-                        </View>
-                    ) : relatedProducts.length > 0 ? (
-                        <View style={styles.productsGrid}>
-                            {relatedProducts.map((item) => (
+                    <View style={styles.productsGrid}>
+                        {relatedProducts.length > 0 ? (
+                            relatedProducts.map((item) => (
                                 <TouchableOpacity
                                     key={item.id}
                                     style={styles.productCard}
                                     onPress={() => {
-                                        navigation.navigate('ProductDetailScreen', {
+                                        navigation.push('ProductDetailScreen', {
                                             productId: item.id,
-                                            product: item.rawProduct,
+                                            product: item
                                         });
                                     }}
                                 >
-                                    <Image source={{ uri: item.image || item.photo }} style={styles.productImage} />
+                                    <Image source={{ uri: getProductImageUrl(item) }} style={styles.productImage} />
                                     <Text style={styles.productName} numberOfLines={2}>{item.name || 'Product'}</Text>
                                     <Text style={styles.productPrice}>{formatPrice(item.price || 0)}</Text>
                                 </TouchableOpacity>
-                            ))}
-                        </View>
-                    ) : (
-                        <Text style={styles.emptyText}>No related products found</Text>
-                    )}
+                            ))
+                        ) : (
+                            <View style={styles.emptyState}>
+                                <Text style={styles.emptyStateText}>No related products available</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
 
                 <View style={styles.bottomSpacer} />
@@ -2442,10 +2400,10 @@ const createStyles = (THEME, isDark) => StyleSheet.create({
 
     /* UTILITY STYLES */
     loadingContainer: {
+        position: 'absolute',
         justifyContent: 'center',
         alignItems: 'center',
-        paddingVertical: 20,
-        minHeight: 100,
+        zIndex: 1,
     },
     bottomSpacer: {
         height: 20,
@@ -2470,17 +2428,25 @@ const createStyles = (THEME, isDark) => StyleSheet.create({
         fontWeight: '600',
         fontSize: 16,
     },
-    emptyText: {
-        color: THEME.muted,
-        fontSize: 14,
-        textAlign: 'center',
-        paddingVertical: 20,
+    emptyState: {
+        padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    noReviewsText: {
-        color: THEME.muted,
+    emptyStateText: {
+        color: THEME.gray,
         fontSize: 14,
         textAlign: 'center',
-        paddingVertical: 20,
-        fontStyle: 'italic',
+    },
+    averageRatingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 8,
+    },
+    averageRatingText: {
+        marginLeft: 4,
+        fontSize: 14,
+        fontWeight: '600',
+        color: THEME.ink,
     },
 });

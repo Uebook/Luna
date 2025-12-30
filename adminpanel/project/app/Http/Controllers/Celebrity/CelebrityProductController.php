@@ -193,4 +193,3 @@ class CelebrityProductController extends Controller
 
 
 
-

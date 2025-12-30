@@ -19,8 +19,8 @@ import { useTheme } from './context/ThemeContext';
 import StandardHeader from './components/StandardHeader';
 import { useResponsive } from './utils/useResponsive';
 import { useTranslation } from 'react-i18next';
+import { homeAPI, getUserId } from './services/api';
 
-const BASE_URL = 'https://luna-api.proteinbros.in/public/api/v1';
 const IMAGE_BASE_URL = 'https://proteinbros.in/assets/images/products/';
 
 // Helper function to get image URL
@@ -32,59 +32,6 @@ const getImageUrl = (photo) => {
 
     // Otherwise construct the full URL
     return `${IMAGE_BASE_URL}${photo}`;
-};
-
-// API helper function
-const fetchRecentlyViewed = async (userId) => {
-    try {
-        console.log('Fetching recently viewed for user:', userId);
-
-        const response = await fetch(`${BASE_URL}/screen/recently-viewed`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({ user_id: userId }),
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const responseText = await response.text();
-        console.log('Raw recently viewed response:', responseText.substring(0, 200));
-
-        let data;
-        try {
-            data = JSON.parse(responseText);
-        } catch (parseError) {
-            console.error('JSON parse error:', parseError);
-            throw new Error('Invalid JSON response from server');
-        }
-
-        console.log('Parsed recently viewed data:', data);
-
-        if (data.status && data.recent_products) {
-            return data.recent_products.map(product => ({
-                id: product.id.toString(),
-                product_id: product.id,
-                title: product.name || 'Unnamed Product',
-                price: product.price || 0,
-                previous_price: product.previous_price || null,
-                image: getImageUrl(product.photo),
-                photo: product.photo,
-                rawProduct: product,
-                // Add timestamp for filtering - using updated_at or created_at from API
-                viewed_at: product.updated_at || product.created_at || new Date().toISOString()
-            }));
-        }
-
-        return [];
-    } catch (error) {
-        console.error('Error fetching recently viewed:', error);
-        throw error;
-    }
 };
 
 function useColumns(width, spacing, getCardWidth) {
@@ -125,16 +72,27 @@ export default function RecentlyViewedScreen({ navigation }) {
     const [filteredItems, setFilteredItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-
-    // Replace with actual user ID from your app state/context
-    const userId = 110; // Example user ID
+    const [userId, setUserId] = useState(null);
 
     const yesterdayStr = moment().subtract(1, 'day').format('DD MMM YYYY');
 
-    // Fetch data on component mount
+    // Load user ID on mount
     useEffect(() => {
-        loadData();
+        const loadUserId = async () => {
+            const id = await getUserId();
+            setUserId(id);
+        };
+        loadUserId();
     }, []);
+
+    // Fetch data on component mount and when userId is available
+    useEffect(() => {
+        if (userId) {
+            loadData();
+        } else {
+            setLoading(false);
+        }
+    }, [userId]);
 
     // Filter items when tab or customDate changes
     useEffect(() => {
@@ -142,16 +100,38 @@ export default function RecentlyViewedScreen({ navigation }) {
     }, [tab, customDate, allRecentItems]);
 
     const loadData = async () => {
+        if (!userId) {
+            setLoading(false);
+            return;
+        }
+
         try {
-            const data = await fetchRecentlyViewed(userId);
-            setAllRecentItems(data);
+            setLoading(true);
+            const response = await homeAPI.getRecentlyViewed(userId);
+            
+            if (response.data.status && response.data.recent_products) {
+                const data = response.data.recent_products.map(product => ({
+                    id: product.id.toString(),
+                    product_id: product.id,
+                    title: product.name || 'Unnamed Product',
+                    price: product.price || 0,
+                    previous_price: product.previous_price || null,
+                    image: getImageUrl(product.photo),
+                    photo: product.photo,
+                    rawProduct: product,
+                    // Add timestamp for filtering - using updated_at or created_at from API
+                    viewed_at: product.updated_at || product.created_at || new Date().toISOString()
+                }));
+                setAllRecentItems(data);
+            } else {
+                setAllRecentItems([]);
+            }
         } catch (error) {
             console.error('Error loading data:', error);
             Alert.alert(
                 'Error',
                 t('error_loading', { defaultValue: 'Failed to load recently viewed items. Please check your connection and try again.' })
             );
-            // Fallback to empty array
             setAllRecentItems([]);
         } finally {
             setLoading(false);

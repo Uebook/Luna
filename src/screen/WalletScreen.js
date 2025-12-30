@@ -12,20 +12,52 @@ import {
     ActivityIndicator,
     ScrollView,
     I18nManager,
+    RefreshControl,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import { useTheme } from '../context/ThemeContext';
 import StandardHeader from '../components/StandardHeader';
-import api from '../services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { walletAPI, getUserId } from '../services/api';
+import { useFocusEffect } from '@react-navigation/native';
 
 /* ----------------- Currency & ratio (BHD) ----------------- */
 const CURRENCY = 'BHD';
 const BHD_PER_POINT = 0.01; // change via remote config if needed
 const SAFE_RATIO = BHD_PER_POINT > 0 ? BHD_PER_POINT : 0.01;
 
+const GIFT_TTL_DAYS = 14; // gift codes expire in 14 days
+const ME = { id: 3, email: 'me@luna.app' };
+
+/* ----------------- in-memory gift store (demo) ----------------- */
+const fakeGiftStore = new Map();
+const nowISO = () => new Date().toISOString();
+
+/* Secure(ish) code generator: AAAA-BBBB using non-ambiguous chars */
+const ALPH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I,O,0,1
+function secureRandomCode() {
+    const pick = (n) => {
+        let out = '';
+        try {
+            // Prefer crypto if available (RN + react-native-get-random-values)
+            const len = n;
+            const buf = new Uint8Array(len);
+            // eslint-disable-next-line no-undef
+            if (global.crypto && global.crypto.getRandomValues) {
+                // eslint-disable-next-line no-undef
+                global.crypto.getRandomValues(buf);
+                for (let i = 0; i < len; i++) out += ALPH[buf[i] % ALPH.length];
+            } else {
+                for (let i = 0; i < len; i++) out += ALPH[Math.floor(Math.random() * ALPH.length)];
+            }
+        } catch {
+            for (let i = 0; i < n; i++) out += ALPH[Math.floor(Math.random() * ALPH.length)];
+        }
+        return out;
+    };
+    return `${pick(4)}-${pick(4)}`;
+}
 
 /* ----------------- formatters & validators ----------------- */
 const fmtMoney = (n) => {
@@ -98,10 +130,14 @@ export default function WalletScreen({ navigation }) {
     /* ---------- Reward state ---------- */
     const [points, setPoints] = useState(0);
     const [transactions, setTransactions] = useState([]);
-    const [purchases, setPurchases] = useState([]);
+    const [loadingTransactions, setLoadingTransactions] = useState(true);
+    const [loadingWallet, setLoadingWallet] = useState(true);
+    const [loadingPurchases, setLoadingPurchases] = useState(true);
     const [userId, setUserId] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [pointsToBhdRatio, setPointsToBhdRatio] = useState(SAFE_RATIO);
+    const [refreshing, setRefreshing] = useState(false);
+
+    /* ---------- Purchases ---------- */
+    const [purchases, setPurchases] = useState([]);
 
     /* ---------- UI state ---------- */
     const [tab, setTab] = useState('rewards'); // 'rewards' | 'purchases'
@@ -118,6 +154,102 @@ export default function WalletScreen({ navigation }) {
     const [code, setCode] = useState('');
     const [redeeming, setRedeeming] = useState(false);
 
+    // Load user ID
+    useEffect(() => {
+        const loadUserId = async () => {
+            try {
+                const id = await getUserId();
+                setUserId(id);
+            } catch (error) {
+                console.log('Error loading user ID:', error);
+            }
+        };
+        loadUserId();
+    }, []);
+
+    // Fetch wallet info (points balance)
+    const fetchWalletInfo = useCallback(async () => {
+        if (!userId) return;
+        try {
+            setLoadingWallet(true);
+            const response = await walletAPI.getWalletInfo(userId);
+            if (response.data?.status && response.data?.data) {
+                setPoints(response.data.data.points || 0);
+            }
+        } catch (error) {
+            console.log('Error fetching wallet info:', error);
+        } finally {
+            setLoadingWallet(false);
+        }
+    }, [userId]);
+
+    // Fetch reward transactions
+    const fetchTransactions = useCallback(async () => {
+        if (!userId) return;
+        try {
+            setLoadingTransactions(true);
+            const response = await walletAPI.getRewardTransactions(userId);
+            if (response.data?.status && response.data?.data) {
+                setTransactions(Array.isArray(response.data.data) ? response.data.data : []);
+            }
+        } catch (error) {
+            console.log('Error fetching transactions:', error);
+            setTransactions([]);
+        } finally {
+            setLoadingTransactions(false);
+        }
+    }, [userId]);
+
+    // Fetch purchase history
+    const fetchPurchases = useCallback(async () => {
+        if (!userId) return;
+        try {
+            setLoadingPurchases(true);
+            const response = await walletAPI.getPurchaseHistory(userId);
+            if (response.data?.status && response.data?.data) {
+                setPurchases(Array.isArray(response.data.data) ? response.data.data : []);
+            }
+        } catch (error) {
+            console.log('Error fetching purchases:', error);
+            setPurchases([]);
+        } finally {
+            setLoadingPurchases(false);
+        }
+    }, [userId]);
+
+    // Fetch all data when userId is available
+    useEffect(() => {
+        if (userId) {
+            fetchWalletInfo();
+            fetchTransactions();
+            fetchPurchases();
+        }
+    }, [userId, fetchWalletInfo, fetchTransactions, fetchPurchases]);
+
+    // Refresh on focus
+    useFocusEffect(
+        useCallback(() => {
+            if (userId) {
+                fetchWalletInfo();
+                fetchTransactions();
+                fetchPurchases();
+            }
+        }, [userId, fetchWalletInfo, fetchTransactions, fetchPurchases])
+    );
+
+    // Refresh handler
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        if (userId) {
+            await Promise.all([
+                fetchWalletInfo(),
+                fetchTransactions(),
+                fetchPurchases(),
+            ]);
+        }
+        setRefreshing(false);
+    }, [userId, fetchWalletInfo, fetchTransactions, fetchPurchases]);
+
     // month filter for purchases
     const allMonths = useMemo(() => {
         const set = new Set();
@@ -127,66 +259,15 @@ export default function WalletScreen({ navigation }) {
     }, [purchases]);
     const [month, setMonth] = useState('All');
 
-    // Load user ID
+    // Update month filter when purchases change
     useEffect(() => {
-        const loadUserId = async () => {
-            try {
-                const userData = await AsyncStorage.getItem('luna_user');
-                if (userData) {
-                    const parsed = JSON.parse(userData);
-                    const user = parsed.user || parsed.data || parsed;
-                    const id = user.id || parsed.id;
-                    setUserId(id);
-                }
-            } catch (error) {
-                console.log('Error loading user ID:', error);
-                setLoading(false);
-            }
-        };
-        loadUserId();
-    }, []);
-
-    // Fetch wallet data
-    const fetchWalletData = useCallback(async () => {
-        if (!userId) return;
-
-        try {
-            setLoading(true);
-            const [walletRes, transactionsRes, purchasesRes] = await Promise.all([
-                api.post('/wallet/info', { user_id: userId }),
-                api.post('/wallet/reward-transactions', { user_id: userId }),
-                api.post('/wallet/purchase-history', { user_id: userId }),
-            ]);
-
-            if (walletRes.data.status && walletRes.data.data) {
-                setPoints(walletRes.data.data.points || 0);
-                setPointsToBhdRatio(walletRes.data.data.points_to_bhd_ratio || SAFE_RATIO);
-            }
-
-            if (transactionsRes.data.status && transactionsRes.data.data) {
-                setTransactions(transactionsRes.data.data);
-            }
-
-            if (purchasesRes.data.status && purchasesRes.data.data) {
-                setPurchases(purchasesRes.data.data);
-                if (purchasesRes.data.data.length > 0) {
-                    const firstMonth = purchasesRes.data.data[0].at.slice(0, 7);
-                    setMonth(firstMonth);
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching wallet data:', error);
-        } finally {
-            setLoading(false);
+        if (allMonths.length > 0 && month === 'All') {
+            // Keep 'All' selected by default
         }
-    }, [userId]);
-
-    useEffect(() => {
-        fetchWalletData();
-    }, [fetchWalletData]);
+    }, [allMonths, month]);
 
     /* ---------- derived ---------- */
-    const fiatValue = useMemo(() => (points * pointsToBhdRatio).toFixed(3), [points, pointsToBhdRatio]);
+    const fiatValue = useMemo(() => (points * SAFE_RATIO).toFixed(3), [points]);
 
     const filteredPurchases = useMemo(() => {
         if (month === 'All') return purchases;
@@ -203,6 +284,9 @@ export default function WalletScreen({ navigation }) {
     );
 
     /* ---------- helpers ---------- */
+    const pushTxn = (tx) =>
+        setTransactions((prev) => [{ ...tx, id: 't' + Date.now(), at: nowISO() }, ...prev]);
+
     const pointsPreviewMoney = (() => {
         const p = parseInt(giftPts || '0', 10);
         if (!p || p <= 0) return null;
@@ -233,72 +317,77 @@ export default function WalletScreen({ navigation }) {
         );
     };
 
-    const performSendGift = async () => {
+    const performSendGift = () => {
         const p = parseInt(giftPts || '0', 10);
         const rcpt = toContact.trim();
-        if (!p || p <= 0 || p > points || !rcpt || !userId) return;
+        if (!p || p <= 0 || p > points || !rcpt) return;
 
         setSending(true);
-        try {
-            const response = await api.post('/wallet/send-gift', {
-                user_id: userId,
-                points: p,
-                recipient: rcpt,
+        setTimeout(() => {
+            const giftCode = secureRandomCode();
+            fakeGiftStore.set(giftCode, {
+                from_user_id: ME.id,
+                to_contact: rcpt,
                 message: giftMsg.trim() || '',
+                points: p,
+                status: 'sent',
+                created_at: nowISO(),
             });
 
-            if (response.data.status && response.data.data) {
-                setPoints((x) => x - p);
-                // Refresh transactions
-                fetchWalletData();
-                setSendOpen(false);
-                setToContact('');
-                setGiftPts('');
-                setGiftMsg('');
-                Alert.alert(
-                    t('wallet:giftCreated'),
-                    `${t('wallet:giftCreatedShare')}\n\n${response.data.data.code}`
-                );
-            } else {
-                Alert.alert('Error', response.data.message || 'Failed to send gift');
-            }
-        } catch (error) {
-            console.error('Error sending gift:', error);
-            Alert.alert('Error', error.response?.data?.message || 'Failed to send gift. Please try again.');
-        } finally {
+            setPoints((x) => x - p);
+            pushTxn({ type: 'gift_sent', points: -p, note: rcpt });
+
             setSending(false);
-        }
+            setSendOpen(false);
+            setToContact('');
+            setGiftPts('');
+            setGiftMsg('');
+            Alert.alert(t('wallet:giftCreated'), `${t('wallet:giftCreatedShare')}\n\n${giftCode}`);
+        }, 500);
     };
 
     /* ---------- redeem gift: validate format + reuse + expiry + live update ---------- */
-    const onRedeemGift = async () => {
+    const onRedeemGift = () => {
         const c = code.trim().toUpperCase();
         if (!c) return Alert.alert(t('wallet:enterGiftCode'));
         if (!isCodeFormat(c)) return Alert.alert(t('wallet:invalidCodeFormat'));
-        if (!userId) return;
 
         setRedeeming(true);
-        try {
-            const response = await api.post('/wallet/redeem-gift', {
-                user_id: userId,
-                code: c,
-            });
-
-            if (response.data.status && response.data.data) {
-                // Refresh wallet data
-                await fetchWalletData();
-                setRedeemOpen(false);
-                setCode('');
-                Alert.alert(t('wallet:redeemSuccessTitle'), t('wallet:redeemSuccessBody'));
-            } else {
-                Alert.alert('Error', response.data.message || 'Failed to redeem gift code');
+        setTimeout(() => {
+            const stored = fakeGiftStore.get(c);
+            if (!stored) {
+                setRedeeming(false);
+                return Alert.alert(t('wallet:invalidCode'));
             }
-        } catch (error) {
-            console.error('Error redeeming gift:', error);
-            Alert.alert('Error', error.response?.data?.message || 'Failed to redeem gift code. Please try again.');
-        } finally {
+            if (stored.from_user_id === ME.id) {
+                setRedeeming(false);
+                return Alert.alert(t('wallet:selfRedeemNotAllowed'));
+            }
+            if (stored.status !== 'sent') {
+                setRedeeming(false);
+                return Alert.alert(t('wallet:codeUsed'));
+            }
+            // expiry
+            const created = new Date(stored.created_at);
+            const ageMs = Date.now() - created.getTime();
+            const ttlMs = GIFT_TTL_DAYS * 24 * 60 * 60 * 1000;
+            if (ageMs > ttlMs) {
+                setRedeeming(false);
+                return Alert.alert(t('wallet:codeExpired'));
+            }
+
+            // live update
+            setPoints((x) => x + stored.points);
+            pushTxn({ type: 'gift_received', points: stored.points, note: stored.to_contact });
+
+            stored.status = 'claimed';
+            fakeGiftStore.set(c, stored);
+
             setRedeeming(false);
-        }
+            setRedeemOpen(false);
+            setCode('');
+            Alert.alert(t('wallet:redeemSuccessTitle'), t('wallet:redeemSuccessBody'));
+        }, 600);
     };
 
     /* ---------- small components ---------- */
@@ -306,13 +395,19 @@ export default function WalletScreen({ navigation }) {
         <View style={styles.balanceCard}>
             <View style={{ flex: 1 }}>
                 <Text style={styles.balanceLabel}>{t('wallet:rewardPoints')}</Text>
-                <Text style={styles.balanceValue}>{points}</Text>
-                <Text style={styles.balanceSub}>
-                    {t('wallet:fiatEquivalent', { value: fmtMoney(fiatValue) })}
-                    {BHD_PER_POINT <= 0 && (
-                        <Text style={{ color: COLORS.danger }}> • {t('wallet:ratioFallback')}</Text>
-                    )}
-                </Text>
+                {loadingWallet ? (
+                    <ActivityIndicator size="small" color={COLORS.brand} style={{ marginTop: 8 }} />
+                ) : (
+                    <>
+                        <Text style={styles.balanceValue}>{points}</Text>
+                        <Text style={styles.balanceSub}>
+                            {t('wallet:fiatEquivalent', { value: fmtMoney(fiatValue) })}
+                            {BHD_PER_POINT <= 0 && (
+                                <Text style={{ color: COLORS.danger }}> • {t('wallet:ratioFallback')}</Text>
+                            )}
+                        </Text>
+                    </>
+                )}
             </View>
             <View style={styles.actionCol}>
                 <TouchableOpacity style={styles.secondaryBtn} onPress={() => setSendOpen(true)}>
@@ -323,24 +418,45 @@ export default function WalletScreen({ navigation }) {
                     <Feather name="codesandbox" color={COLORS.brand} size={16} />
                     <Text style={styles.secondaryTxt}>{t('wallet:redeemGift')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
-                    style={styles.secondaryBtn} 
-                    onPress={() => navigation.navigate('ReceivedGiftScreen')}
-                >
-                    <Feather name="inbox" color={COLORS.brand} size={16} />
-                    <Text style={styles.secondaryTxt}>{t('wallet:receivedGifts') || 'Received Gifts'}</Text>
-                </TouchableOpacity>
             </View>
         </View>
     );
 
     const TxnRow = ({ item }) => {
         const isIn = item.points > 0;
-        const kind = item.type === 'gift_sent' ? t('wallet:giftSent') : t('wallet:giftReceived');
+        let kind = '';
+        let icon = isIn ? 'arrow-down' : 'arrow-up';
+        
+        // Map transaction types to labels
+        switch (item.type) {
+            case 'gift_sent':
+                kind = t('wallet:giftSent');
+                icon = 'arrow-up';
+                break;
+            case 'gift_received':
+                kind = t('wallet:giftReceived');
+                icon = 'arrow-down';
+                break;
+            case 'purchase':
+                kind = t('wallet:purchase', { defaultValue: 'Purchase' });
+                icon = 'shopping-bag';
+                break;
+            case 'redeem_code':
+                kind = t('wallet:redeemCode', { defaultValue: 'Redeemed Code' });
+                icon = 'arrow-down';
+                break;
+            case 'admin_adjustment':
+                kind = t('wallet:adminAdjustment', { defaultValue: 'Admin Adjustment' });
+                icon = isIn ? 'arrow-down' : 'arrow-up';
+                break;
+            default:
+                kind = item.type || t('wallet:transaction', { defaultValue: 'Transaction' });
+        }
+        
         return (
             <View style={styles.row}>
                 <Feather
-                    name={isIn ? 'arrow-down' : 'arrow-up'}
+                    name={icon}
                     size={16}
                     color={COLORS.text}
                     style={{ marginRight: 10 }}
@@ -349,8 +465,10 @@ export default function WalletScreen({ navigation }) {
                     <Text style={styles.rowTitle}>{kind}</Text>
                     <Text style={styles.rowNote}>
                         {item.type === 'gift_sent'
-                            ? t('wallet:toX', { x: item.note })
-                            : t('wallet:fromX', { x: item.note })}{' '}
+                            ? t('wallet:toX', { x: item.note || '' })
+                            : item.type === 'gift_received'
+                            ? t('wallet:fromX', { x: item.note || '' })
+                            : item.note || ''}{' '}
                         • {t('wallet:dateOn', { date: fmtDate(item.at) })}
                     </Text>
                 </View>
@@ -390,22 +508,28 @@ export default function WalletScreen({ navigation }) {
     );
 
     /* ---------- render ---------- */
-    if (loading && points === 0 && transactions.length === 0 && purchases.length === 0) {
-        return (
-            <SafeAreaView style={styles.safe}>
-                <StandardHeader title={t('wallet:title')} navigation={navigation} showGradient={true} />
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                    <ActivityIndicator size="large" color={COLORS.brand} />
-                </View>
-            </SafeAreaView>
-        );
-    }
-
     return (
         <SafeAreaView style={styles.safe}>
-            <StandardHeader title={t('wallet:title')} navigation={navigation} showGradient={true} />
+            {/* Header */}
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation?.goBack?.()}>
+                    <Feather
+                        name={isRTL ? 'chevron-right' : 'chevron-left'}
+                        size={22}
+                        color={COLORS.text}
+                    />
+                </TouchableOpacity>
+                <Text style={styles.h1}>{t('wallet:title')}</Text>
+                <View style={{ width: 22 }} />
+            </View>
 
-            <ScrollView contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                contentContainerStyle={{ paddingBottom: 24 }} 
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
+            >
                 <BalanceCard />
 
                 {/* Tabs */}
@@ -429,69 +553,95 @@ export default function WalletScreen({ navigation }) {
 
                 {/* Rewards tab */}
                 {tab === 'rewards' && (
-                    <FlatList
-                        data={transactions}
-                        keyExtractor={(it) => it.id}
-                        renderItem={({ item }) => <TxnRow item={item} />}
-                        scrollEnabled={false}
-                        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6 }}
-                        ListEmptyComponent={
-                            <Text style={{ textAlign: 'center', color: COLORS.sub, paddingVertical: 16 }}>
-                                {t('wallet:noTransactions')}
-                            </Text>
-                        }
-                    />
+                    <>
+                        {loadingTransactions ? (
+                            <View style={{ padding: 20, alignItems: 'center' }}>
+                                <ActivityIndicator size="large" color={COLORS.brand} />
+                                <Text style={{ marginTop: 12, color: COLORS.sub }}>
+                                    {t('wallet:loading', { defaultValue: 'Loading...' })}
+                                </Text>
+                            </View>
+                        ) : (
+                            <FlatList
+                                data={transactions}
+                                keyExtractor={(it) => it.id}
+                                renderItem={({ item }) => <TxnRow item={item} />}
+                                scrollEnabled={false}
+                                contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6 }}
+                                ListEmptyComponent={
+                                    <Text style={{ textAlign: 'center', color: COLORS.sub, paddingVertical: 16 }}>
+                                        {t('wallet:noTransactions')}
+                                    </Text>
+                                }
+                            />
+                        )}
+                    </>
                 )}
 
                 {/* Purchases tab */}
                 {tab === 'purchases' && (
                     <View style={{ paddingHorizontal: 16, paddingTop: 6 }}>
-                        {/* Month filter */}
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.filterRow}
-                            style={isRTL ? { transform: [{ scaleX: -1 }] } : null}
-                        >
-                            {allMonths.map((m) => {
-                                const active = m === month;
-                                const label = m === 'All' ? t('wallet:monthAll') : fmtMonthLabel(m);
-                                return (
-                                    <TouchableOpacity
-                                        key={m}
-                                        onPress={() => setMonth(m)}
-                                        style={[styles.filterChip, active && styles.filterChipActive, isRTL && { transform: [{ scaleX: -1 }] }]}
-                                        activeOpacity={0.9}
-                                    >
-                                        <Text style={[styles.filterTxt, active && styles.filterTxtActive]}>{label}</Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </ScrollView>
-
-                        {/* Summary */}
-                        <View style={styles.spendCard}>
-                            <Text style={styles.spendLabel}>
-                                {month === 'All'
-                                    ? t('wallet:totalSpentAllTime')
-                                    : t('wallet:totalSpentInMonth', { month: fmtMonthLabel(month) })}
-                            </Text>
-                            <Text style={styles.spendValue}>{fmtMoney(totalSpent)}</Text>
-                        </View>
-
-                        {/* List */}
-                        <FlatList
-                            data={filteredPurchases}
-                            keyExtractor={(it) => it.id}
-                            renderItem={({ item }) => <PurchaseRow item={item} />}
-                            scrollEnabled={false}
-                            contentContainerStyle={{ paddingTop: 8 }}
-                            ListEmptyComponent={
-                                <Text style={{ color: COLORS.sub, paddingVertical: 16, textAlign: 'center' }}>
-                                    {t('wallet:noPurchases')}
+                        {loadingPurchases ? (
+                            <View style={{ padding: 20, alignItems: 'center' }}>
+                                <ActivityIndicator size="large" color={COLORS.brand} />
+                                <Text style={{ marginTop: 12, color: COLORS.sub }}>
+                                    {t('wallet:loading', { defaultValue: 'Loading...' })}
                                 </Text>
-                            }
-                        />
+                            </View>
+                        ) : (
+                            <>
+                                {/* Month filter */}
+                                {allMonths.length > 1 && (
+                                    <ScrollView
+                                        horizontal
+                                        showsHorizontalScrollIndicator={false}
+                                        contentContainerStyle={styles.filterRow}
+                                        style={isRTL ? { transform: [{ scaleX: -1 }] } : null}
+                                    >
+                                        {allMonths.map((m) => {
+                                            const active = m === month;
+                                            const label = m === 'All' ? t('wallet:monthAll') : fmtMonthLabel(m);
+                                            return (
+                                                <TouchableOpacity
+                                                    key={m}
+                                                    onPress={() => setMonth(m)}
+                                                    style={[styles.filterChip, active && styles.filterChipActive, isRTL && { transform: [{ scaleX: -1 }] }]}
+                                                    activeOpacity={0.9}
+                                                >
+                                                    <Text style={[styles.filterTxt, active && styles.filterTxtActive]}>{label}</Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </ScrollView>
+                                )}
+
+                                {/* Summary */}
+                                {filteredPurchases.length > 0 && (
+                                    <View style={styles.spendCard}>
+                                        <Text style={styles.spendLabel}>
+                                            {month === 'All'
+                                                ? t('wallet:totalSpentAllTime')
+                                                : t('wallet:totalSpentInMonth', { month: fmtMonthLabel(month) })}
+                                        </Text>
+                                        <Text style={styles.spendValue}>{fmtMoney(totalSpent)}</Text>
+                                    </View>
+                                )}
+
+                                {/* List */}
+                                <FlatList
+                                    data={filteredPurchases}
+                                    keyExtractor={(it) => String(it.id)}
+                                    renderItem={({ item }) => <PurchaseRow item={item} />}
+                                    scrollEnabled={false}
+                                    contentContainerStyle={{ paddingTop: 8 }}
+                                    ListEmptyComponent={
+                                        <Text style={{ color: COLORS.sub, paddingVertical: 16, textAlign: 'center' }}>
+                                            {t('wallet:noPurchases')}
+                                        </Text>
+                                    }
+                                />
+                            </>
+                        )}
                     </View>
                 )}
             </ScrollView>
@@ -581,6 +731,16 @@ export default function WalletScreen({ navigation }) {
 const createStyles = (COLORS) => StyleSheet.create({
     safe: { flex: 1, backgroundColor: COLORS.bg },
 
+    header: {
+        height: 50,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.line,
+    },
+    h1: { fontSize: 20, fontWeight: '800', color: COLORS.text },
 
     balanceCard: {
         margin: 16,

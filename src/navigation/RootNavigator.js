@@ -1,10 +1,9 @@
 // navigation/RootNavigator.js
-// Import ALL screens directly to prevent "Downloading..." message
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
 
-// Import all screens directly (no lazy loading)
+// Import all screens directly
 import BottomTabs from './BottomTabs';
 import SplashVideoScreen from '../screen/SplashVideoScreen';
 import NewHome from '../screen/NewHome';
@@ -71,9 +70,6 @@ import BestProductsScreen from '../screen/BestProductsScreen';
 import AllNewProductScreen from '../screen/AllNewProduct';
 import TrendingProductsScreen from '../screen/TrendingProductsScreen';
 import SubCategoryProductsScreen from '../screen/SubCategoryProductsScreen';
-import ReceivedGiftScreen from '../screen/ReceivedGiftScreen';
-import BlogListScreen from '../screen/BlogListScreen';
-import BlogDetailScreen from '../screen/BlogDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -190,7 +186,6 @@ const RootNavigator = () => {
         <Stack.Screen name="SearchScreen" component={SearchScreen} />
         <Stack.Screen name="CategoryProductScreen" component={CategoryProductScreen} />
         <Stack.Screen name="WalletScreen" component={WalletScreen} />
-        <Stack.Screen name="ReceivedGiftScreen" component={ReceivedGiftScreen} />
         <Stack.Screen name="SubscriptionScreen" component={SubscriptionScreen} />
         <Stack.Screen name="ContactPreferencesNew" component={ContactPreferencesNew} />
         <Stack.Screen name="OrderDetails" component={OrderDetailsScreen} />
@@ -211,8 +206,6 @@ const RootNavigator = () => {
         <Stack.Screen name="ExploreScreen" component={ExploreScreen} />
         <Stack.Screen name="BrandStoreScreen" component={BrandStoreScreen} />
         <Stack.Screen name="StoriesScreen" component={StoriesScreen} />
-        <Stack.Screen name="BlogListScreen" component={BlogListScreen} />
-        <Stack.Screen name="BlogDetailScreen" component={BlogDetailScreen} />
 
 
 

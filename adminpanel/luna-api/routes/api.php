@@ -13,7 +13,6 @@ use App\Http\Controllers\Api\VoucherController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\GiftCardController;
 use App\Http\Controllers\Api\WalletController;
-use App\Http\Controllers\Api\ContactPreferencesController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -27,7 +26,6 @@ Route::controller(CheckoutController::class)->prefix('v1/order')->group(function
     Route::post('/checkout', 'store');
     Route::post('/get-my', 'myOrders');
     Route::post('/activity-stats', 'getActivityStats');
-    Route::post('/update-status', 'updateOrderStatus');
 });
 Route::controller(HomeController::class)->prefix('v1/screen')->group(function () {
    Route::post('/home','homeData');
@@ -52,14 +50,12 @@ Route::controller(HomeController::class)->prefix('v1/screen')->group(function ()
        Route::post('/subscribe', 'subscribe');
    });
 
-   // Gift Card endpoints  
-   Route::controller(GiftCardController::class)->prefix('gift-card')->group(function () {
+   // Gift Card endpoints
+   Route::controller(GiftCardController::class)->prefix('v1/gift-card')->group(function () {
        Route::post('/list', 'getGiftCards');
        Route::post('/purchase', 'purchaseGiftCard');
        Route::post('/user-cards', 'getUserGiftCards');
-       Route::post('/received', 'getReceivedGiftCards');
        Route::post('/validate', 'validateGiftCard');
-       Route::post('/redeem', 'redeemGiftCard');
    });
    Route::post('/products', 'products');
    Route::post('/products/details', 'productDetails');
@@ -141,13 +137,5 @@ Route::controller(WalletController::class)->prefix('v1/wallet')->group(function 
     Route::post('/info', 'getWalletInfo');
     Route::post('/purchases', 'getPurchaseHistory');
     Route::post('/transactions', 'getRewardTransactions');
-    Route::post('/send-gift', 'sendGift');
-    Route::post('/redeem-code', 'redeemGift');
-    Route::post('/award-points', 'awardPointsForOrder');
-});
-
-Route::controller(ContactPreferencesController::class)->prefix('v1/contact-preferences')->group(function () {
-    Route::post('/get', 'getPreferences');
-    Route::post('/save', 'savePreferences');
 });
 

@@ -245,4 +245,3 @@ class ProductChatbotController extends Controller
 
 
 
-

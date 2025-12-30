@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from './i18n/index';
 import Colors from './constants/Colors'; // Fixed import path
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { homeAPI, cartAPI, getUserId } from './services/api';
 
 const COLORS = {
     bg: Colors.bg,
@@ -35,9 +36,7 @@ const COLORS = {
 };
 
 const CURRENCY = 'BHD';
-const BASE_URL = 'https://luna-api.proteinbros.in/public/api/v1';
 const IMAGE_BASE_URL = 'https://proteinbros.in/assets/images/products/';
-const CART_STORAGE_KEY = 'user_cart';
 
 const fmtMoney = (n) => {
     try {
@@ -137,161 +136,11 @@ const addToCartStorage = async (product) => {
     }
 };
 
-// API helper functions with better error handling
-const fetchWishlist = async (userId) => {
+// Add to cart using API
+const addToCartAPI = async (userId, productId, quantity = 1) => {
     try {
-        console.log('Fetching wishlist for user:', userId);
-
-        const response = await fetch(`${BASE_URL}/screen/wishlist`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({ user_id: userId }),
-        });
-
-        // First, check if response is ok
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        // Get response as text first to debug
-        const responseText = await response.text();
-        console.log('Raw API response:', responseText.substring(0, 200)); // Log first 200 chars
-
-        let data;
-        try {
-            data = JSON.parse(responseText);
-        } catch (parseError) {
-            console.error('JSON parse error:', parseError);
-            console.error('Response that failed to parse:', responseText);
-            throw new Error('Invalid JSON response from server');
-        }
-
-        console.log('Parsed wishlist data:', data);
-
-        if (data.status && data.wishlist_products) {
-            return data.wishlist_products.map(product => ({
-                id: product.id.toString(),
-                product_id: product.id,
-                image: getImageUrl(product.photo),
-                title: product.name || 'Unnamed Product',
-                price: product.previous_price || product.price,
-                discountedPrice: product.previous_price && product.previous_price > product.price ? product.price : null,
-                color: product.color_all ? (Array.isArray(product.color_all) ? product.color_all[0] : '#000000') : '#000000',
-                sizeType: 'letter',
-                size: 'M',
-                rawProduct: product
-            }));
-        }
-
-        if (data.message) {
-            console.log('API message:', data.message);
-        }
-
-        return [];
-    } catch (error) {
-        console.error('Error fetching wishlist:', error);
-        throw error;
-    }
-};
-
-const fetchRecentlyViewed = async (userId) => {
-    try {
-        console.log('Fetching recently viewed for user:', userId);
-
-        const response = await fetch(`${BASE_URL}/screen/recently-viewed`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({ user_id: userId }),
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const responseText = await response.text();
-        console.log('Raw recently viewed response:', responseText.substring(0, 200));
-
-        let data;
-        try {
-            data = JSON.parse(responseText);
-        } catch (parseError) {
-            console.error('JSON parse error:', parseError);
-            throw new Error('Invalid JSON response from server');
-        }
-
-        console.log('Parsed recently viewed data:', data);
-
-        if (data.status && data.recent_products) {
-            return data.recent_products.map(product => ({
-                id: product.id.toString(),
-                title: product.name || 'Unnamed Product',
-                price: product.price || 0,
-                thumb: getImageUrl(product.photo),
-                photo: product.photo, // Keep original photo for debugging
-            }));
-        }
-
-        return [];
-    } catch (error) {
-        console.error('Error fetching recently viewed:', error);
-        throw error;
-    }
-};
-
-const toggleWishlist = async (userId, productId) => {
-    try {
-        console.log('Toggling wishlist for user:', userId, 'product:', productId);
-
-        const response = await fetch(`${BASE_URL}/screen/wishlist/toggle`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({
-                user_id: userId,
-                product_id: productId
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const responseText = await response.text();
-        console.log('Toggle wishlist response:', responseText);
-
-        let data;
-        try {
-            data = JSON.parse(responseText);
-        } catch (parseError) {
-            console.error('JSON parse error:', parseError);
-            return false;
-        }
-
-        return data.status === true;
-    } catch (error) {
-        console.error('Error toggling wishlist:', error);
-        return false;
-    }
-};
-
-const addToCart = async (item) => {
-    try {
-        console.log('Adding to cart:', item.title);
-
-        const success = await addToCartStorage(item);
-        if (success) {
-            return true;
-        } else {
-            return false;
-        }
+        const response = await cartAPI.addToCart(userId, productId, quantity);
+        return response.data.success === true;
     } catch (error) {
         console.error('Error adding to cart:', error);
         return false;
@@ -307,34 +156,81 @@ export default function WishlistScreen({ navigation }) {
     const [recentItems, setRecentItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-
-    // Replace with actual user ID from your app state/context
-    const userId = 110; // Example user ID
+    const [userId, setUserId] = useState(null);
 
     // store chip **keys**, not labels
     const CHIP_KEYS = ['all', 'trending', 'az', 'newest'];
     const [chipKey, setChipKey] = useState('all');
 
-    // Fetch data on component mount
+    // Load user ID on mount
     useEffect(() => {
-        loadData();
+        const loadUserId = async () => {
+            const id = await getUserId();
+            setUserId(id);
+        };
+        loadUserId();
     }, []);
 
+    // Fetch data on component mount and when userId is available
+    useEffect(() => {
+        if (userId) {
+            loadData();
+        } else {
+            setLoading(false);
+        }
+    }, [userId]);
+
     const loadData = async () => {
+        if (!userId) {
+            setLoading(false);
+            return;
+        }
+
         try {
-            const [wishlistData, recentData] = await Promise.all([
-                fetchWishlist(userId),
-                fetchRecentlyViewed(userId)
+            setLoading(true);
+            const [wishlistResponse, recentResponse] = await Promise.all([
+                homeAPI.getWishlist(userId),
+                homeAPI.getRecentlyViewed(userId)
             ]);
-            setItems(wishlistData);
-            setRecentItems(recentData);
+
+            // Transform wishlist data
+            if (wishlistResponse.data.status && wishlistResponse.data.wishlist_products) {
+                const wishlistData = wishlistResponse.data.wishlist_products.map(product => ({
+                    id: product.id.toString(),
+                    product_id: product.id,
+                    image: getImageUrl(product.photo),
+                    title: product.name || 'Unnamed Product',
+                    price: product.previous_price || product.price,
+                    discountedPrice: product.previous_price && product.previous_price > product.price ? product.price : null,
+                    color: product.color_all ? (Array.isArray(product.color_all) ? product.color_all[0] : '#000000') : '#000000',
+                    sizeType: 'letter',
+                    size: 'M',
+                    rawProduct: product
+                }));
+                setItems(wishlistData);
+            } else {
+                setItems([]);
+            }
+
+            // Transform recently viewed data
+            if (recentResponse.data.status && recentResponse.data.recent_products) {
+                const recentData = recentResponse.data.recent_products.map(product => ({
+                    id: product.id.toString(),
+                    title: product.name || 'Unnamed Product',
+                    price: product.price || 0,
+                    thumb: getImageUrl(product.photo),
+                    photo: product.photo,
+                }));
+                setRecentItems(recentData);
+            } else {
+                setRecentItems([]);
+            }
         } catch (error) {
             console.error('Error loading data:', error);
             Alert.alert(
                 'Error',
                 'Failed to load data. Please check your connection and try again.'
             );
-            // Fallback to empty arrays
             setItems([]);
             setRecentItems([]);
         } finally {
@@ -365,13 +261,18 @@ export default function WishlistScreen({ navigation }) {
     }, [items, chipKey]);
 
     const removeFromWishlist = async (id, productId) => {
+        if (!userId) {
+            Alert.alert('Error', 'Please login first');
+            return;
+        }
+
         try {
-            const success = await toggleWishlist(userId, productId);
-            if (success) {
+            const response = await homeAPI.toggleWishlist(userId, productId);
+            if (response.data.status === true) {
                 setItems((prev) => prev.filter((it) => it.id !== id));
                 Alert.alert('Success', 'Item removed from wishlist');
             } else {
-                Alert.alert('Error', 'Failed to remove item from wishlist');
+                Alert.alert('Error', response.data.message || 'Failed to remove item from wishlist');
             }
         } catch (error) {
             console.error('Error removing from wishlist:', error);
@@ -380,8 +281,13 @@ export default function WishlistScreen({ navigation }) {
     };
 
     const moveToBag = async (item) => {
+        if (!userId) {
+            Alert.alert('Error', 'Please login first');
+            return;
+        }
+
         try {
-            const success = await addToCart(item);
+            const success = await addToCartAPI(userId, item.product_id, 1);
             if (success) {
                 // Remove from wishlist after adding to cart
                 await removeFromWishlist(item.id, item.product_id);

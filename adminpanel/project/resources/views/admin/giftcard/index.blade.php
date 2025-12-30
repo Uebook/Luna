@@ -25,17 +25,9 @@
                     <h4 class="title">
                         {{ __("Gift Cards Management") }}
                     </h4>
-                    <div class="action-list">
-                        <a class="btn btn-secondary" href="{{ route('admin-giftcard-history-sent') }}">
-                            <i class="fas fa-paper-plane"></i> {{ __("Sent History") }}
-                        </a>
-                        <a class="btn btn-secondary" href="{{ route('admin-giftcard-history-received') }}">
-                            <i class="fas fa-gift"></i> {{ __("Received History") }}
-                        </a>
-                        <a class="add-btn" href="{{ route('admin-giftcard-create') }}">
-                            <i class="fas fa-plus"></i> {{ __("Add New Gift Card") }}
-                        </a>
-                    </div>
+                    <a class="add-btn" href="{{ route('admin-giftcard-create') }}">
+                        <i class="fas fa-plus"></i> {{ __("Add New Gift Card") }}
+                    </a>
                 </div>
 
                 <div class="mr-table allproduct">

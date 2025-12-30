@@ -92,9 +92,9 @@ export default function SubscriptionScreen({ navigation }) {
 
     const fmtCurrency = (amount) => {
         try {
-            return new Intl.NumberFormat(i18n.language, { style: 'currency', currency: 'BHD', minimumFractionDigits: 3 }).format(amount);
+            return new Intl.NumberFormat(i18n.language, { style: 'currency', currency: 'KWD', minimumFractionDigits: 3 }).format(amount);
         } catch {
-            return `BHD ${amount.toFixed(3)}`;
+            return `KWD ${amount.toFixed(3)}`;
         }
     };
 

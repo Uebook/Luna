@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
-    SafeAreaView, ScrollView, Dimensions, Platform
+    SafeAreaView, ScrollView, Dimensions, Platform, ActivityIndicator, Alert
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Feather from 'react-native-vector-icons/Feather';
@@ -10,9 +10,7 @@ import Svg, { G, Circle } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import { useTheme } from '../context/ThemeContext';
-import api from '../services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import StandardHeader from '../components/StandardHeader';
+import { orderAPI, getUserId } from '../services/api';
 
 const { width: W } = Dimensions.get('window');
 
@@ -35,26 +33,22 @@ const YEARS = [currentYear, currentYear - 1, currentYear - 2];
 /* -------------------- API calls -------------------- */
 const fetchActivityData = async (userId, year, monthIdx) => {
     try {
-        const response = await api.post('/order/activity-stats', {
-            user_id: userId,
-            year: year,
-            month: monthIdx, // API expects 0-11
-        });
-
-        if (response.data.status && response.data.data) {
+        const response = await orderAPI.getActivityStats(userId, year, monthIdx);
+        
+        if (response.data?.status && response.data?.data) {
             return {
                 categories: response.data.data.categories || [],
                 counters: response.data.data.counters || { ordered: 0, received: 0, toReceive: 0 },
             };
+        } else {
+            // Return empty data if API fails
+            return {
+                categories: [],
+                counters: { ordered: 0, received: 0, toReceive: 0 },
+            };
         }
-        
-        // Return empty data if API fails
-        return {
-            categories: [],
-            counters: { ordered: 0, received: 0, toReceive: 0 },
-        };
     } catch (error) {
-        console.error('Error fetching activity data:', error);
+        console.log('Error fetching activity data:', error);
         // Return empty data on error
         return {
             categories: [],
@@ -86,26 +80,23 @@ export default function ActivityScreen() {
     const [categories, setCategories] = useState([]);
     const [counters, setCounters] = useState({ ordered: 0, received: 0, toReceive: 0 });
     const [userId, setUserId] = useState(null);
+    const [error, setError] = useState(null);
 
     // Load user ID
     useEffect(() => {
         const loadUserId = async () => {
             try {
-                const userData = await AsyncStorage.getItem('luna_user');
-                if (userData) {
-                    const parsed = JSON.parse(userData);
-                    const user = parsed.user || parsed.data || parsed;
-                    const id = user.id || parsed.id;
-                    setUserId(id);
-                }
-            } catch (error) {
-                console.log('Error loading user ID:', error);
+                const id = await getUserId();
+                setUserId(id);
+            } catch (err) {
+                console.log('Error loading user ID:', err);
+                setError('Failed to load user data');
             }
         };
         loadUserId();
     }, []);
 
-    // Fetch activity data when user ID, year, or month changes
+    // Fetch activity data from API
     useEffect(() => {
         if (!userId) {
             setLoading(false);
@@ -115,14 +106,26 @@ export default function ActivityScreen() {
         let alive = true;
         (async () => {
             setLoading(true);
-            const data = await fetchActivityData(userId, year, monthIdx);
-            if (!alive) return;
-            setCategories(data.categories);
-            setCounters(data.counters);
-            setLoading(false);
+            setError(null);
+            try {
+                const data = await fetchActivityData(userId, year, monthIdx);
+                if (!alive) return;
+                setCategories(data.categories);
+                setCounters(data.counters);
+            } catch (err) {
+                if (!alive) return;
+                console.log('Error fetching activity:', err);
+                setError(err.message || 'Failed to load activity data');
+                // Set empty data on error
+                setCategories([]);
+                setCounters({ ordered: 0, received: 0, toReceive: 0 });
+            } finally {
+                if (!alive) return;
+                setLoading(false);
+            }
         })();
         return () => { alive = false; };
-    }, [userId, year, monthIdx]);
+    }, [year, monthIdx, userId]);
 
     const total = useMemo(
         () => categories.reduce((s, c) => s + Math.max(0, Number(c.amount) || 0), 0),
@@ -223,9 +226,9 @@ export default function ActivityScreen() {
 
     const money = (n) => {
         try {
-            return new Intl.NumberFormat(lang, { style: 'currency', currency: 'BHD' }).format(n);
+            return new Intl.NumberFormat(lang, { style: 'currency', currency: 'USD' }).format(n);
         } catch {
-            return `BHD ${Number(n).toFixed(3)}`;
+            return `$${Number(n).toFixed(2)}`;
         }
     };
 
@@ -263,12 +266,22 @@ export default function ActivityScreen() {
     /* -------------------- Render -------------------- */
     return (
         <SafeAreaView style={[styles.safe, { writingDirection: isRTL ? 'rtl' : 'ltr' }]}>
-            <StandardHeader
-                title={tr('title', 'My Activity')}
-                navigation={navigation}
-                showGradient={true}
-            />
             <ScrollView contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+                {/* Header: back + centered title */}
+                <View style={styles.header}>
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
+                        style={styles.backBtn}
+                        activeOpacity={0.7}
+                    >
+                        <Feather name={isRTL ? 'chevron-right' : 'chevron-left'} size={22} color={PALETTE.text} />
+                    </TouchableOpacity>
+
+                    <Text style={styles.headerTitle}>{tr('title', 'My Activity')}</Text>
+
+                    {/* Spacer to keep perfect centering */}
+                    <View style={{ width: 40, height: 40 }} />
+                </View>
 
                 {/* Year chips */}
                 <ScrollView
@@ -314,93 +327,141 @@ export default function ActivityScreen() {
 
                 {/* Card: donut + legend */}
                 <View style={[styles.card, { paddingBottom: 18 }]}>
-                    <View style={{ alignItems: 'center', marginTop: 8 }}>
-                        <View style={[styles.donutWrap, { width: RING_SIZE, height: RING_SIZE }]}>
-                            <Svg width={RING_SIZE} height={RING_SIZE} onPress={onSvgPress}>
-                                <G originX={RING_SIZE / 2} originY={RING_SIZE / 2} rotation={-90}>
-                                    {/* Rail */}
-                                    <Circle
-                                        cx={RING_SIZE / 2}
-                                        cy={RING_SIZE / 2}
-                                        r={OUTER_R}
-                                        stroke="#EEF2FF"
-                                        strokeWidth={STROKE}
-                                        fill="none"
-                                    />
-                                    {/* Slices */}
-                                    {!loading && segments.map((seg, i) => (
-                                        <Circle
-                                            key={seg.id}
-                                            cx={RING_SIZE / 2}
-                                            cy={RING_SIZE / 2}
-                                            r={OUTER_R}
-                                            stroke={seg.color}
-                                            strokeWidth={STROKE}
-                                            strokeDasharray={[seg.len, CIRC - seg.len]}
-                                            strokeDashoffset={seg.offset}
-                                            strokeLinecap="butt"
-                                            fill="none"
-                                            opacity={activeIdx != null && activeIdx !== i ? 0.35 : 1}
-                                        />
-                                    ))}
-                                </G>
-                            </Svg>
-
-                            {/* Center total / loading */}
-                            <View
-                                style={[
-                                    styles.centerDisk,
-                                    {
-                                        width: INNER_R * 2,
-                                        height: INNER_R * 2,
-                                        borderRadius: INNER_R,
-                                        left: (RING_SIZE - INNER_R * 2) / 2,
-                                        top: (RING_SIZE - INNER_R * 2) / 2,
-                                    },
-                                ]}
+                    {error && !loading ? (
+                        <View style={{ padding: 20, alignItems: 'center' }}>
+                            <Feather name="alert-circle" size={48} color={PALETTE.sub} />
+                            <Text style={{ marginTop: 12, color: PALETTE.sub, textAlign: 'center' }}>
+                                {error}
+                            </Text>
+                            <TouchableOpacity
+                                style={[styles.retryBtn, { marginTop: 16 }]}
+                                onPress={async () => {
+                                    if (userId) {
+                                        setLoading(true);
+                                        setError(null);
+                                        try {
+                                            const data = await fetchActivityData(userId, year, monthIdx);
+                                            setCategories(data.categories);
+                                            setCounters(data.counters);
+                                            setError(null);
+                                        } catch (err) {
+                                            setError(err.message || 'Failed to load activity data');
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }
+                                }}
                             >
-                                <Text style={styles.centerLabel}>
-                                    {loading ? tr('loading', 'Loading') : tr('total', 'Total')}
-                                </Text>
-                                <Text style={styles.centerValue}>{loading ? '…' : money(total)}</Text>
+                                <Text style={styles.retryBtnText}>Retry</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <>
+                            <View style={{ alignItems: 'center', marginTop: 8 }}>
+                                <View style={[styles.donutWrap, { width: RING_SIZE, height: RING_SIZE }]}>
+                                    <Svg width={RING_SIZE} height={RING_SIZE} onPress={onSvgPress}>
+                                        <G originX={RING_SIZE / 2} originY={RING_SIZE / 2} rotation={-90}>
+                                            {/* Rail */}
+                                            <Circle
+                                                cx={RING_SIZE / 2}
+                                                cy={RING_SIZE / 2}
+                                                r={OUTER_R}
+                                                stroke="#EEF2FF"
+                                                strokeWidth={STROKE}
+                                                fill="none"
+                                            />
+                                            {/* Slices */}
+                                            {!loading && segments.length > 0 && segments.map((seg, i) => (
+                                                <Circle
+                                                    key={seg.id}
+                                                    cx={RING_SIZE / 2}
+                                                    cy={RING_SIZE / 2}
+                                                    r={OUTER_R}
+                                                    stroke={seg.color}
+                                                    strokeWidth={STROKE}
+                                                    strokeDasharray={[seg.len, CIRC - seg.len]}
+                                                    strokeDashoffset={seg.offset}
+                                                    strokeLinecap="butt"
+                                                    fill="none"
+                                                    opacity={activeIdx != null && activeIdx !== i ? 0.35 : 1}
+                                                />
+                                            ))}
+                                        </G>
+                                    </Svg>
+
+                                    {/* Center total / loading */}
+                                    <View
+                                        style={[
+                                            styles.centerDisk,
+                                            {
+                                                width: INNER_R * 2,
+                                                height: INNER_R * 2,
+                                                borderRadius: INNER_R,
+                                                left: (RING_SIZE - INNER_R * 2) / 2,
+                                                top: (RING_SIZE - INNER_R * 2) / 2,
+                                            },
+                                        ]}
+                                    >
+                                        {loading ? (
+                                            <ActivityIndicator size="small" color={PALETTE.brand} />
+                                        ) : (
+                                            <>
+                                                <Text style={styles.centerLabel}>
+                                                    {tr('total', 'Total')}
+                                                </Text>
+                                                <Text style={styles.centerValue}>{money(total)}</Text>
+                                            </>
+                                        )}
+                                    </View>
+
+                                    {/* Tooltip */}
+                                    {tip && activeIdx != null && itemsWithPercent[activeIdx] && (
+                                        <View
+                                            pointerEvents="none"
+                                            style={[
+                                                styles.tooltip,
+                                                {
+                                                    left: Math.max(8, Math.min(tip.x - 70, RING_SIZE - 140 - 8)),
+                                                    top: Math.max(8, Math.min(tip.y - 50, RING_SIZE - 80 - 8)),
+                                                    borderColor: itemsWithPercent[activeIdx].color,
+                                                },
+                                            ]}
+                                        >
+                                            <Text style={[styles.tooltipTitle, { color: itemsWithPercent[activeIdx].color }]}>
+                                                {itemsWithPercent[activeIdx].label}
+                                            </Text>
+                                            <Text style={styles.tooltipLine}>{itemsWithPercent[activeIdx].percent.toFixed(1)}%</Text>
+                                            <Text style={styles.tooltipLine}>{money(itemsWithPercent[activeIdx].amount)}</Text>
+                                        </View>
+                                    )}
+                                </View>
                             </View>
 
-                            {/* Tooltip */}
-                            {tip && activeIdx != null && itemsWithPercent[activeIdx] && (
-                                <View
-                                    pointerEvents="none"
-                                    style={[
-                                        styles.tooltip,
-                                        {
-                                            left: Math.max(8, Math.min(tip.x - 70, RING_SIZE - 140 - 8)),
-                                            top: Math.max(8, Math.min(tip.y - 50, RING_SIZE - 80 - 8)),
-                                            borderColor: itemsWithPercent[activeIdx].color,
-                                        },
-                                    ]}
-                                >
-                                    <Text style={[styles.tooltipTitle, { color: itemsWithPercent[activeIdx].color }]}>
-                                        {itemsWithPercent[activeIdx].label}
-                                    </Text>
-                                    <Text style={styles.tooltipLine}>{itemsWithPercent[activeIdx].percent.toFixed(1)}%</Text>
-                                    <Text style={styles.tooltipLine}>{money(itemsWithPercent[activeIdx].amount)}</Text>
-                                </View>
-                            )}
-                        </View>
-                    </View>
-
-                    {/* Legend */}
-                    <View style={styles.legendWrap}>
-                        {itemsWithPercent.map((it, idx) => (
-                            <LegendPill
-                                key={it.id}
-                                index={idx}
-                                color={it.color}
-                                label={it.label}
-                                amount={it.amount}
-                                percent={it.percent}
-                            />
-                        ))}
-                    </View>
+                            {/* Legend */}
+                            <View style={styles.legendWrap}>
+                                {itemsWithPercent.length > 0 ? (
+                                    itemsWithPercent.map((it, idx) => (
+                                        <LegendPill
+                                            key={it.id}
+                                            index={idx}
+                                            color={it.color}
+                                            label={it.label}
+                                            amount={it.amount}
+                                            percent={it.percent}
+                                        />
+                                    ))
+                                ) : (
+                                    !loading && (
+                                        <View style={{ padding: 20, alignItems: 'center', width: '100%' }}>
+                                            <Text style={{ color: PALETTE.sub, textAlign: 'center' }}>
+                                                {userId ? 'No activity data for this period' : 'Please login to view activity'}
+                                            </Text>
+                                        </View>
+                                    )
+                                )}
+                            </View>
+                        </>
+                    )}
                 </View>
 
                 {/* Stats */}
@@ -442,6 +503,29 @@ const PALETTE = {
 
 const styles = StyleSheet.create({
     safe: { flex: 1, backgroundColor: PALETTE.bg },
+
+    /* Header */
+    header: {
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottomWidth: 1,
+        borderBottomColor: PALETTE.line,
+    },
+    backBtn: {
+        width: 40, height: 40, borderRadius: 20,
+        alignItems: 'center', justifyContent: 'center',
+        backgroundColor: '#F3F4F6',
+    },
+    headerTitle: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 20,
+        fontWeight: '800',
+        color: PALETTE.text,
+    },
 
     /* Year row */
     yearRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
@@ -556,4 +640,17 @@ const styles = StyleSheet.create({
         borderRadius: 12, alignItems: 'center', justifyContent: 'center', height: 52,
     },
     ctaTxt: { color: '#fff', fontWeight: '900', fontSize: 16 },
+
+    /* Retry button */
+    retryBtn: {
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        backgroundColor: PALETTE.brand,
+        borderRadius: 12,
+    },
+    retryBtnText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 14,
+    },
 });

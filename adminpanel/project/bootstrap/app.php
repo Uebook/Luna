@@ -11,9 +11,9 @@
 |
  */
 
-// Set APP_BASE_PATH correctly - should point to the project directory
-$basePath = $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__);
-$app = new Illuminate\Foundation\Application($basePath);
+$app = new Illuminate\Foundation\Application(
+    $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__)
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -52,15 +52,9 @@ $app->singleton(
 |
  */
 
-// Set environment path to project root (where .env file is located)
-$envPath = realpath(__DIR__ . '/..');
-if ($envPath) {
-    $app->useEnvironmentPath($envPath);
-}
+$app->useEnvironmentPath(realpath(__DIR__ . '/../vendor/markury/src/'));
 
 $path = base_path();
 $modifiedPath = str_replace("/project", "", $path);
-if (is_dir($modifiedPath)) {
-    $app->usePublicPath($modifiedPath);
-}
+$app->usePublicPath($modifiedPath);
 return $app;

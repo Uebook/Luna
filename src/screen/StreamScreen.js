@@ -16,7 +16,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import { useTheme } from '../context/ThemeContext';
 import { SkeletonListScreen } from '../components/SkeletonLoader';
 import { useSkeletonLoader } from '../hooks/useSkeletonLoader';
-import api from '../services/api';
+import { liveStreamAPI } from '../services/api';
 
 const TABS = ['All', 'Celeb', 'Women', 'Men', 'Minis', 'FWD'];
 
@@ -55,12 +55,11 @@ export default function StreamScreen({ navigation }) {
     const fetchLiveStreams = async () => {
         try {
             setApiLoading(true);
-            const response = await api.post('/stream/list', {
-                category: 'all',
-                limit: 20,
-            });
+            const response = await liveStreamAPI.getActiveStreams();
 
             if (response.data.success && response.data.streams) {
+                setStreams(response.data.streams);
+            } else if (response.data.status && response.data.streams) {
                 setStreams(response.data.streams);
             }
         } catch (error) {

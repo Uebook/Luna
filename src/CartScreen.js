@@ -1,5 +1,5 @@
 // src/screens/CartScreen.js
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -18,52 +18,18 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Colors from './constants/Colors';
-import { getImageUrl } from './config/api';
+import { cartAPI, getUserId } from './services/api';
 
 const CART_STORAGE_KEY = 'user_cart';
+const USER_STORAGE_KEY = 'luna_user';
+const IMAGE_BASE_URL = 'https://proteinbros.in/assets/images/products/';
 
-// Cart Item Image Component with error handling
-const CartItemImage = React.memo(({ item, styles, getResponsiveSize, Colors }) => {
-    const [imageError, setImageError] = useState(false);
-    
-    // Get image from multiple possible fields
-    const imageSource = item.image || item.photo || item.thumbnail || item.product_image || item.img || item.productImage;
-    
-    console.log('=== CART ITEM IMAGE DEBUG ===');
-    console.log('Item ID:', item.id);
-    console.log('Item name:', item.name);
-    console.log('Raw image source:', imageSource);
-    console.log('All item keys:', Object.keys(item));
-    
-    const imageUri = imageSource ? getImageUrl(imageSource) : null;
-    
-    console.log('Formatted image URI:', imageUri);
-    console.log('Image error state:', imageError);
-    console.log('IMAGE_BASE_URL:', 'https://proteinbros.in/assets/images/products/');
-    
-    const handleImageError = (error) => {
-        console.log('Image load error:', error);
-        console.log('Failed URI:', imageUri);
-        setImageError(true);
-    };
-    
-    if (imageUri && !imageError) {
-        return (
-            <Image
-                source={{ uri: imageUri }}
-                style={styles.productImage}
-                resizeMode="cover"
-                onError={handleImageError}
-            />
-        );
-    }
-    
-    return (
-        <View style={[styles.productImage, styles.imagePlaceholder]}>
-            <Icon name="image" size={getResponsiveSize(32)} color={Colors.muted} />
-        </View>
-    );
-});
+// Helper to get full image URL
+const getImageUrl = (photo) => {
+    if (!photo) return 'https://via.placeholder.com/300';
+    if (photo.startsWith('http')) return photo;
+    return `${IMAGE_BASE_URL}${photo}`;
+};
 
 const CartScreen = () => {
     const navigation = useNavigation();
@@ -89,29 +55,63 @@ const CartScreen = () => {
 
     const loadCartItems = async () => {
         try {
-            const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
-            if (cartData) {
-                const parsedCart = JSON.parse(cartData);
-                console.log('=== CART DATA ===');
-                console.log('Full cart data:', JSON.stringify(parsedCart, null, 2));
-                console.log('Number of items:', parsedCart.length);
-                if (parsedCart.length > 0) {
-                    console.log('First item structure:', JSON.stringify(parsedCart[0], null, 2));
-                    console.log('First item image fields:', {
-                        image: parsedCart[0].image,
-                        photo: parsedCart[0].photo,
-                        thumbnail: parsedCart[0].thumbnail,
-                        product_image: parsedCart[0].product_image,
-                        allKeys: Object.keys(parsedCart[0])
-                    });
+            setLoading(true);
+            const userId = await getUserId();
+            
+            if (!userId) {
+                // No user logged in, try AsyncStorage as fallback
+                const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+                if (cartData) {
+                    setCartItems(JSON.parse(cartData));
+                } else {
+                    setCartItems([]);
                 }
-                setCartItems(parsedCart);
+                return;
+            }
+
+            // Load cart from API
+            const response = await cartAPI.getCart(userId);
+            
+            if (response.data.success && response.data.cart) {
+                // Transform API response to match UI structure
+                const transformedCart = response.data.cart.map(item => ({
+                    id: item.product_id || item.id,
+                    product_id: item.product_id,
+                    cart_id: item.id, // Keep cart ID for reference
+                    name: item.name || 'Product',
+                    price: parseFloat(item.price) || 0,
+                    quantity: item.quantity || 1,
+                    image: getImageUrl(item.photo || item.thumbnail),
+                    photo: item.photo || item.thumbnail,
+                    sku: item.sku || '',
+                    stock: item.stock || 0,
+                    selectedSize: item.size || '',
+                    selectedColor: item.color || '',
+                    colorHex: item.color || '#000000',
+                    size: item.size || '',
+                    previous_price: item.previous_price || null,
+                }));
+                
+                setCartItems(transformedCart);
+                
+                // Also save to AsyncStorage for offline support
+                await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(transformedCart));
             } else {
                 setCartItems([]);
             }
         } catch (error) {
             console.log('Error loading cart:', error);
-            setCartItems([]);
+            // Fallback to AsyncStorage on error
+            try {
+                const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+                if (cartData) {
+                    setCartItems(JSON.parse(cartData));
+                } else {
+                    setCartItems([]);
+                }
+            } catch (storageError) {
+                setCartItems([]);
+            }
         } finally {
             setLoading(false);
         }
@@ -119,58 +119,104 @@ const CartScreen = () => {
 
     const updateCartItemQuantity = async (itemId, selectedSize, selectedColor, newQuantity) => {
         try {
-            const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
-            let cart = cartData ? JSON.parse(cartData) : [];
+            const userId = await getUserId();
+            const productId = itemId; // Use product_id for API
 
-            const itemIndex = cart.findIndex(item =>
-                item.id === itemId &&
-                item.selectedSize === selectedSize &&
-                item.selectedColor === selectedColor
-            );
+            if (!userId) {
+                // Fallback to AsyncStorage if not logged in
+                const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+                let cart = cartData ? JSON.parse(cartData) : [];
 
-            if (itemIndex !== -1) {
-                if (newQuantity > 0) {
-                    cart[itemIndex].quantity = newQuantity;
-                } else {
-                    cart.splice(itemIndex, 1);
+                const itemIndex = cart.findIndex(item =>
+                    item.id === itemId &&
+                    item.selectedSize === selectedSize &&
+                    item.selectedColor === selectedColor
+                );
+
+                if (itemIndex !== -1) {
+                    if (newQuantity > 0) {
+                        cart[itemIndex].quantity = newQuantity;
+                    } else {
+                        cart.splice(itemIndex, 1);
+                    }
+                    await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+                    setCartItems(cart);
                 }
-                await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-                setCartItems(cart);
+                return;
+            }
+
+            if (newQuantity <= 0) {
+                // Remove item
+                await removeCartItem(itemId, selectedSize, selectedColor);
+                return;
+            }
+
+            // Update via API
+            const response = await cartAPI.updateCart(userId, productId, newQuantity);
+            
+            if (response.data.success) {
+                // Reload cart to get updated data
+                await loadCartItems();
+            } else {
+                Alert.alert('Error', response.data.message || 'Failed to update cart item');
             }
         } catch (error) {
             console.log('Error updating cart:', error);
-            Alert.alert('Error', 'Failed to update cart item');
+            Alert.alert('Error', 'Failed to update cart item. Please try again.');
         }
     };
 
-    const removeCartItem = async (itemId, selectedSize, selectedColor) => {
-        Alert.alert(
-            'Remove Item',
-            'Are you sure you want to remove this item from your cart?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Remove',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
-                            let cart = cartData ? JSON.parse(cartData) : [];
-                            const filteredCart = cart.filter(item =>
-                                !(item.id === itemId &&
-                                    item.selectedSize === selectedSize &&
-                                    item.selectedColor === selectedColor)
-                            );
-                            await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(filteredCart));
-                            setCartItems(filteredCart);
-                        } catch (error) {
-                            console.log('Error removing item:', error);
-                            Alert.alert('Error', 'Failed to remove item from cart');
-                        }
-                    }
+    const removeCartItem = async (itemId, selectedSize, selectedColor, showAlert = true) => {
+        const performRemove = async () => {
+            try {
+                const userId = await getUserId();
+                const productId = itemId; // Use product_id for API
+
+                if (!userId) {
+                    // Fallback to AsyncStorage if not logged in
+                    const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+                    let cart = cartData ? JSON.parse(cartData) : [];
+                    const filteredCart = cart.filter(item =>
+                        !(item.id === itemId &&
+                            item.selectedSize === selectedSize &&
+                            item.selectedColor === selectedColor)
+                    );
+                    await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(filteredCart));
+                    setCartItems(filteredCart);
+                    return;
                 }
-            ]
-        );
+
+                // Remove via API
+                const response = await cartAPI.removeFromCart(userId, productId);
+                
+                if (response.data.success) {
+                    // Reload cart to get updated data
+                    await loadCartItems();
+                } else {
+                    Alert.alert('Error', response.data.message || 'Failed to remove item from cart');
+                }
+            } catch (error) {
+                console.log('Error removing item:', error);
+                Alert.alert('Error', 'Failed to remove item from cart. Please try again.');
+            }
+        };
+
+        if (showAlert) {
+            Alert.alert(
+                'Remove Item',
+                'Are you sure you want to remove this item from your cart?',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Remove',
+                        style: 'destructive',
+                        onPress: performRemove
+                    }
+                ]
+            );
+        } else {
+            await performRemove();
+        }
     };
 
     const toggleSaveItem = (itemId, selectedSize, selectedColor) => {
@@ -186,14 +232,14 @@ const CartScreen = () => {
         return savedItems.has(itemKey);
     };
 
-    // Totals (BHD)
+    // Totals (KWD)
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const discount = subtotal * 0.10; // 10% discount
-    const shipping = subtotal > 50 ? 0 : 49.000; // Free shipping above 50 BHD
+    const shipping = subtotal > 50 ? 0 : 49.000; // Free shipping above 50 KWD
     const total = subtotal - discount + shipping;
     const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-    const formatPrice = (price) => `${parseFloat(price).toFixed(3)} BHD`;
+    const formatPrice = (price) => `${parseFloat(price).toFixed(3)} KWD`;
 
     const getColorName = (hex) => {
         const colorMap = {
@@ -229,11 +275,10 @@ const CartScreen = () => {
 
                 {/* Product Image */}
                 <View style={responsiveStyles.imageContainer}>
-                    <CartItemImage 
-                        item={item} 
-                        styles={responsiveStyles} 
-                        getResponsiveSize={getResponsiveSize} 
-                        Colors={Colors} 
+                    <Image
+                        source={{ uri: item.image || 'https://via.placeholder.com/80x80' }}
+                        style={responsiveStyles.productImage}
+                        resizeMode="cover"
                     />
                 </View>
 
@@ -338,6 +383,13 @@ const CartScreen = () => {
     if (cartItems.length === 0) {
         return (
             <SafeAreaView style={responsiveStyles.safe}>
+                <View style={responsiveStyles.titleSection}>
+                    <View>
+                        <Text style={responsiveStyles.pageTitle}>Shopping Cart</Text>
+                        <Text style={responsiveStyles.pageSubtitle}>0 items</Text>
+                    </View>
+                </View>
+
                 <View style={responsiveStyles.emptyContainer}>
                     <Icon name="remove-shopping-cart" size={getResponsiveSize(80)} color={Colors.muted} />
                     <Text style={responsiveStyles.emptyTitle}>Your cart is empty</Text>
@@ -359,6 +411,15 @@ const CartScreen = () => {
 
     return (
         <SafeAreaView style={responsiveStyles.safe}>
+            <View style={responsiveStyles.titleSection}>
+                <View>
+                    <Text style={responsiveStyles.pageTitle}>Shopping Cart</Text>
+                    <Text style={responsiveStyles.pageSubtitle}>
+                        {totalItems} {totalItems === 1 ? 'item' : 'items'}
+                    </Text>
+                </View>
+            </View>
+
             <ScrollView
                 style={responsiveStyles.scrollView}
                 showsVerticalScrollIndicator={false}
@@ -366,6 +427,7 @@ const CartScreen = () => {
             >
                 {/* Cart Items */}
                 <View style={responsiveStyles.cartItemsSection}>
+                    <Text style={responsiveStyles.sectionTitle}>Items in your cart ({totalItems})</Text>
                     {cartItems.map((item, index) => renderCartItem(item, index))}
                 </View>
 
@@ -405,22 +467,6 @@ const CartScreen = () => {
                             <Text style={responsiveStyles.freeShippingText}>You qualify for free shipping!</Text>
                         </View>
                     )}
-
-                    {/* Proceed to Checkout Button */}
-                    <TouchableOpacity
-                        style={responsiveStyles.priceCardCheckoutButton}
-                        onPress={() => navigation.navigate('CheckoutScreen')}
-                    >
-                        <LinearGradient
-                            colors={[Colors.p1, Colors.p2]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={responsiveStyles.priceCardCheckoutGradient}
-                        >
-                            <Text style={responsiveStyles.priceCardCheckoutText}>PROCEED TO CHECKOUT</Text>
-                            <Icon name="arrow-forward" size={getResponsiveSize(20)} color={Colors.white} />
-                        </LinearGradient>
-                    </TouchableOpacity>
                 </View>
 
                 {/* Security Banner */}
@@ -431,6 +477,23 @@ const CartScreen = () => {
                     </Text>
                 </View>
             </ScrollView>
+
+            {/* Bottom Checkout Bar */}
+            <View style={responsiveStyles.checkoutBar}>
+                <View style={responsiveStyles.totalContainer}>
+                    <Text style={responsiveStyles.bottomTotal}>{formatPrice(total)}</Text>
+                    <Text style={responsiveStyles.bottomItems}>
+                        {totalItems} {totalItems === 1 ? 'item' : 'items'}
+                    </Text>
+                </View>
+                <TouchableOpacity
+                    style={responsiveStyles.checkoutButton}
+                    onPress={() => navigation.navigate('CheckoutScreen')}
+                >
+                    <Text style={responsiveStyles.checkoutButtonText}>PROCEED TO CHECKOUT</Text>
+                    <Icon name="arrow-forward" size={getResponsiveSize(20)} color={Colors.white} />
+                </TouchableOpacity>
+            </View>
         </SafeAreaView>
     );
 };
@@ -449,6 +512,26 @@ const createResponsiveStyles = (windowWidth, windowHeight) => {
 
     return StyleSheet.create({
         safe: { flex: 1, backgroundColor: Colors.bg },
+
+        // Title Section
+        titleSection: {
+            paddingHorizontal: getSpacing(16),
+            paddingVertical: getSpacing(16),
+            backgroundColor: Colors.card,
+            borderBottomWidth: 1,
+            borderBottomColor: Colors.line,
+        },
+        pageTitle: {
+            fontSize: getResponsiveSize(24),
+            fontWeight: '700',
+            color: Colors.ink,
+            marginBottom: getSpacing(4),
+        },
+        pageSubtitle: {
+            fontSize: getResponsiveSize(14),
+            color: Colors.gray,
+            fontWeight: '500',
+        },
 
         // Gradient Header
         headerGradient: {
@@ -496,19 +579,21 @@ const createResponsiveStyles = (windowWidth, windowHeight) => {
         shopNowText: { color: Colors.white, fontSize: getResponsiveSize(16), fontWeight: '700' },
 
         cartItemsSection: {
-            backgroundColor: Colors.card, marginHorizontal: getSpacing(16), marginTop: getSpacing(16), marginBottom: getSpacing(16),
+            backgroundColor: Colors.card, marginHorizontal: getSpacing(16), marginBottom: getSpacing(16),
             borderRadius: 12, overflow: 'hidden',
             ...Platform.select({ ios: { shadowColor: Colors.ink, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }, android: { elevation: 3 } }),
         },
+        sectionTitle: {
+            fontSize: getResponsiveSize(16), fontWeight: '700', color: Colors.ink, padding: getSpacing(16),
+            backgroundColor: Colors.bg, borderBottomWidth: 1, borderBottomColor: Colors.line,
+        },
         cartItem: {
             flexDirection: 'row', padding: getSpacing(16), borderBottomWidth: 1, borderBottomColor: Colors.line, backgroundColor: Colors.card,
-            alignItems: 'flex-start',
         },
         cartItemTablet: { padding: getSpacing(20) },
-        checkbox: { marginRight: getSpacing(12), justifyContent: 'flex-start', paddingTop: getSpacing(2) },
-        imageContainer: { marginRight: getSpacing(12), justifyContent: 'flex-start' },
+        checkbox: { marginRight: getSpacing(12), justifyContent: 'flex-start' },
+        imageContainer: { marginRight: getSpacing(12) },
         productImage: { width: getResponsiveSize(80), height: getResponsiveSize(80), borderRadius: 8, backgroundColor: Colors.bg },
-        imagePlaceholder: { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.line },
         productDetails: { flex: 1 },
         productName: { fontSize: getResponsiveSize(14), fontWeight: '600', color: Colors.ink, lineHeight: getResponsiveSize(18), marginBottom: getSpacing(6) },
         variantContainer: { flexDirection: 'row', marginBottom: getSpacing(6), flexWrap: 'wrap' },
@@ -564,17 +649,6 @@ const createResponsiveStyles = (windowWidth, windowHeight) => {
             borderRadius: 6, marginTop: getSpacing(12),
         },
         freeShippingText: { fontSize: getResponsiveSize(12), color: Colors.success, fontWeight: '600', marginLeft: getSpacing(6) },
-        priceCardCheckoutButton: {
-            marginTop: getSpacing(16),
-            borderRadius: 8,
-            overflow: 'hidden',
-            ...Platform.select({ ios: { shadowColor: Colors.ink, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }, android: { elevation: 4 } }),
-        },
-        priceCardCheckoutGradient: {
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-            paddingVertical: getSpacing(14), paddingHorizontal: getSpacing(16),
-        },
-        priceCardCheckoutText: { color: Colors.white, fontSize: getResponsiveSize(14), fontWeight: '700', marginRight: getSpacing(8) },
 
         securityBanner: {
             flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, marginHorizontal: getSpacing(16),
@@ -585,9 +659,7 @@ const createResponsiveStyles = (windowWidth, windowHeight) => {
 
         checkoutBar: {
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.card,
-            paddingHorizontal: getSpacing(16), paddingVertical: getSpacing(12), 
-            paddingBottom: Platform.OS === 'ios' ? getSpacing(12) + 80 : getSpacing(12) + 60, // Add padding for bottom navigation
-            borderTopWidth: 1, borderTopColor: Colors.line,
+            paddingHorizontal: getSpacing(16), paddingVertical: getSpacing(12), borderTopWidth: 1, borderTopColor: Colors.line,
             ...Platform.select({ ios: { shadowColor: Colors.ink, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 4 }, android: { elevation: 8 } }),
         },
         totalContainer: { flex: 1 },

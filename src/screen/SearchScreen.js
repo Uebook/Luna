@@ -420,7 +420,6 @@ const SettingsScreen = ({ navigation }) => {
 };
 
 export default SettingsScreen;
-
 /* ---------------- styles ---------------- */
 const styles = StyleSheet.create({
     safe: { flex: 1, backgroundColor: C.bg },
@@ -488,3 +487,4 @@ const styles = StyleSheet.create({
     btnDarkText: { color: '#fff', fontWeight: '800' },
     btnText: { color: '#fff', fontWeight: '800' },
 });
+

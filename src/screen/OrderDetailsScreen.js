@@ -1,5 +1,5 @@
 // src/screens/OrderDetailsScreen.js
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -10,6 +10,9 @@ import {
     TouchableOpacity,
     Platform,
     Linking,
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
@@ -17,6 +20,8 @@ import { useMemo } from 'react';
 import { SkeletonListScreen } from '../components/SkeletonLoader';
 import { useSkeletonLoader } from '../hooks/useSkeletonLoader';
 import StandardHeader from '../components/StandardHeader';
+import { orderAPI, getUserId } from '../services/api';
+import { useFocusEffect } from '@react-navigation/native';
 
 const Section = ({ title, right, children, style, styles }) => (
     <View style={[styles.section, style]}>
@@ -40,16 +45,7 @@ const InfoRow = ({ icon, label, value, onPress, COLORS, styles, multiline = fals
 
 const CartItem = ({ item, styles }) => (
     <View style={styles.itemCard}>
-        {typeof item.image === 'object' && item.image.uri ? (
-          <Image 
-            source={item.image} 
-            style={styles.itemImg}
-            resizeMode="cover"
-            defaultSource={require('../assets/image1.png')}
-          />
-        ) : (
-          <Image source={item.image} style={styles.itemImg} />
-        )}
+        <Image source={item.image} style={styles.itemImg} />
         <View style={{ flex: 1, marginLeft: 10 }}>
             <Text numberOfLines={2} style={styles.itemTitle}>{item.title}</Text>
             {item.variant ? <Text style={styles.itemSub}>{item.variant}</Text> : null}
@@ -85,26 +81,26 @@ const IMAGE_BASE_URL = 'https://proteinbros.in/assets/images/products/';
 
 // Helper to get image URL
 const getImageUrl = (photo) => {
-  if (!photo) return require('../assets/image1.png');
-  if (photo.startsWith('http://') || photo.startsWith('https://')) {
-    return { uri: photo };
-  }
-  return { uri: `${IMAGE_BASE_URL}${photo}` };
+    if (!photo) return require('../assets/image1.png');
+    if (photo.startsWith('http://') || photo.startsWith('https://')) {
+        return { uri: photo };
+    }
+    return { uri: `${IMAGE_BASE_URL}${photo}` };
 };
 
 // Format date helper
 const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  try {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    }).format(date);
-  } catch {
-    return dateString;
-  }
+    if (!dateString) return 'N/A';
+    try {
+        const date = new Date(dateString);
+        return new Intl.DateTimeFormat('en', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        }).format(date);
+    } catch {
+        return dateString;
+    }
 };
 
 /* ---------- build a safe order from route params (API data) ---------- */
@@ -124,13 +120,13 @@ function buildOrder(orderFromParams) {
     };
 
     const p = orderFromParams || {};
-    
-    // Extract order number
-    const orderNumber = p.order_number || p.orderNumber || p.orderNo || defaults.orderNumber;
-    
+
+    // Extract order number - handle both 'number' (from API) and 'order_number' formats
+    const orderNumber = p.number || p.order_number || p.orderNumber || p.orderNo || defaults.orderNumber;
+
     // Format date
     const date = formatDate(p.created_at || p.date);
-    
+
     // Map status
     const status = p.status || defaults.status;
     const statusMap = {
@@ -145,7 +141,7 @@ function buildOrder(orderFromParams) {
         'cancelled': 'Cancelled',
     };
     const displayStatus = statusMap[status?.toLowerCase()] || status || 'Processing';
-    
+
     // Map status to step index
     const stepMap = {
         'pending': 0,
@@ -158,54 +154,96 @@ function buildOrder(orderFromParams) {
         'completed': 4,
     };
     const currentStepIndex = stepMap[status?.toLowerCase()] ?? 0;
-    
-    // Parse cart items
+
+    // Parse cart items - handle both API format (ordered_products) and old format (cart)
     let items = [];
     try {
-        let cart = typeof p.cart === 'string' ? JSON.parse(p.cart) : (p.cart || []);
-        
-        if (Array.isArray(cart)) {
-            items = cart.map((item, idx) => ({
-                id: `item-${idx}-${item.product_id || idx}`,
-                title: item.name || 'Product',
-                variant: item.size || item.color ? `${item.size || ''}${item.size && item.color ? ' • ' : ''}${item.color || ''}`.trim() : null,
-                qty: item.quantity || item.qty || 1,
-                price: parseFloat(item.price || 0),
-                priceFmt: currency(parseFloat(item.price || 0), p.currency_sign || 'BHD'),
-                image: getImageUrl(item.image || item.photo || item.thumbnail),
-            }));
-        } else if (cart.items && typeof cart.items === 'object') {
-            items = Object.values(cart.items).map((item, idx) => ({
-                id: `item-${idx}`,
-                title: item.name || 'Product',
-                variant: item.size || item.color ? `${item.size || ''}${item.size && item.color ? ' • ' : ''}${item.color || ''}`.trim() : null,
-                qty: item.qty || item.quantity || 1,
-                price: parseFloat(item.price || 0),
-                priceFmt: currency(parseFloat(item.price || 0), p.currency_sign || 'BHD'),
-                image: getImageUrl(item.image || item.photo || item.thumbnail),
-            }));
+        // Check for ordered_products from API first
+        if (p.ordered_products && typeof p.ordered_products === 'object') {
+            items = Object.values(p.ordered_products).map((productData, idx) => {
+                const item = productData.item?.item || productData.item || productData;
+                return {
+                    id: `item-${idx}-${item.id || idx}`,
+                    title: item.name || 'Product',
+                    variant: item.size || item.color ? `${item.size || ''}${item.size && item.color ? ' • ' : ''}${item.color || ''}`.trim() : null,
+                    qty: item.qty || item.quantity || 1,
+                    price: parseFloat(item.price || 0),
+                    priceFmt: currency(parseFloat(item.price || 0), p.currency_sign || 'BHD'),
+                    image: getImageUrl(item.photo || item.image || item.thumbnail),
+                };
+            });
+        } else {
+            // Fallback to old cart format
+            let cart = typeof p.cart === 'string' ? JSON.parse(p.cart) : (p.cart || []);
+
+            if (Array.isArray(cart)) {
+                items = cart.map((item, idx) => ({
+                    id: `item-${idx}-${item.product_id || idx}`,
+                    title: item.name || 'Product',
+                    variant: item.size || item.color ? `${item.size || ''}${item.size && item.color ? ' • ' : ''}${item.color || ''}`.trim() : null,
+                    qty: item.quantity || 1,
+                    price: parseFloat(item.price || 0),
+                    priceFmt: currency(parseFloat(item.price || 0), p.currency_sign || 'BHD'),
+                    image: getImageUrl(item.image || item.photo || item.thumbnail),
+                }));
+            } else if (cart.items && typeof cart.items === 'object') {
+                items = Object.values(cart.items).map((item, idx) => ({
+                    id: `item-${idx}`,
+                    title: item.name || 'Product',
+                    variant: null,
+                    qty: item.qty || item.quantity || 1,
+                    price: parseFloat(item.price || 0),
+                    priceFmt: currency(parseFloat(item.price || 0), p.currency_sign || 'BHD'),
+                    image: getImageUrl(item.photo || item.image || item.thumbnail),
+                }));
+            }
         }
     } catch (e) {
         console.log('Error parsing cart items:', e);
         items = [];
     }
-    
-    // Calculate prices
-    const subtotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    const shippingCost = parseFloat(p.shipping_cost || 0);
+
+    // Calculate prices - handle both API format (total, paid_amount) and calculated format
+    let subtotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const shippingCost = parseFloat(p.shipping_cost || p.shipping || 0);
+    const packingCost = parseFloat(p.packing_cost || 0);
     const discount = parseFloat(p.coupon_discount || p.discount || 0);
     const tax = parseFloat(p.tax || 0);
-    const total = parseFloat(p.pay_amount || (subtotal + shippingCost + tax - discount));
-    
+
+    // If API provides total/paid_amount, use it; otherwise calculate
+    let total = 0;
+    if (p.total) {
+        // Extract number from formatted string like "BHD 50.000"
+        const totalMatch = p.total.toString().match(/[\d.]+/);
+        total = totalMatch ? parseFloat(totalMatch[0]) : 0;
+    } else if (p.paid_amount) {
+        const paidMatch = p.paid_amount.toString().match(/[\d.]+/);
+        total = paidMatch ? parseFloat(paidMatch[0]) : 0;
+    } else {
+        total = parseFloat(p.pay_amount || (subtotal + shippingCost + packingCost + tax - discount));
+    }
+
+    // Extract currency from formatted string or use default
+    let currencyCode = 'BHD';
+    if (p.total && typeof p.total === 'string') {
+        const currencyMatch = p.total.match(/^([A-Z]+)/);
+        if (currencyMatch) currencyCode = currencyMatch[1];
+    } else if (p.paid_amount && typeof p.paid_amount === 'string') {
+        const currencyMatch = p.paid_amount.match(/^([A-Z]+)/);
+        if (currencyMatch) currencyCode = currencyMatch[1];
+    } else {
+        currencyCode = p.currency_sign || p.currency_name || 'BHD';
+    }
+
     const prices = {
-        currency: p.currency_sign || p.currency_name || 'BHD',
+        currency: currencyCode,
         subtotal: subtotal,
-        shipping: shippingCost,
+        shipping: shippingCost + packingCost,
         discount: discount,
         tax: tax,
         total: total,
     };
-    
+
     // Shipping address
     const shipping = {
         name: p.shipping_name || p.customer_name || 'N/A',
@@ -217,19 +255,23 @@ function buildOrder(orderFromParams) {
         zip: p.shipping_zip || p.customer_zip || 'N/A',
         country: p.shipping_country || p.customer_country || 'N/A',
     };
-    
-    // Payment method
+
+    // Payment method - handle both 'method' and 'payment_method' from API
+    const paymentMethod = p.payment_method || p.method || 'Card';
     const payment = {
-        method: p.method === 'cod' ? 'Cash on Delivery' : (p.method === 'card' ? 'Card Payment' : p.method || 'Card'),
+        method: paymentMethod === 'cod' ? 'Cash on Delivery' :
+            (paymentMethod === 'card' ? 'Card Payment' :
+                (paymentMethod === 'stripe' ? 'Stripe' :
+                    (paymentMethod === 'paypal' ? 'PayPal' : paymentMethod || 'Card'))),
         billingSame: true,
     };
-    
-    // Tracking (if available)
+
+    // Tracking (if available) - handle both API format and old format
     const tracking = {
-        carrier: p.shipping_title || '-',
-        code: p.txnid || '-',
-        eta: '-',
-        url: '',
+        carrier: p.shipping?.title || p.shipping_title || p.shipping || '-',
+        code: p.transaction_id || p.txnid || p.tracking_code || '-',
+        eta: p.estimated_delivery || p.eta || '-',
+        url: p.tracking_url || p.trackingUrl || '',
     };
 
     return {
@@ -261,22 +303,134 @@ const OrderDetailsScreen = ({ route, navigation }) => {
     };
     const styles = useMemo(() => createStyles(COLORS), [COLORS]);
     const [loading, setLoading] = useSkeletonLoader(true, 600);
+    const [orderData, setOrderData] = useState(null);
+    const [apiLoading, setApiLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [refreshing, setRefreshing] = useState(false);
+    const [userId, setUserId] = useState(null);
 
-    React.useEffect(() => {
-        const timer = setTimeout(() => setLoading(false), 800);
-        return () => clearTimeout(timer);
-    }, [setLoading]);
+    // Get order number from route params
+    const routeOrder = route?.params?.order;
+    const orderNumber = routeOrder?.order_number || routeOrder?.orderNumber || routeOrder?.number;
+    const orderId = routeOrder?.id;
 
-    const order = buildOrder(route?.params?.order);
+    // Load user ID
+    useEffect(() => {
+        const loadUserId = async () => {
+            try {
+                const id = await getUserId();
+                setUserId(id);
+            } catch (error) {
+                console.log('Error loading user ID:', error);
+            }
+        };
+        loadUserId();
+    }, []);
+
+    // Fetch order details from API
+    const fetchOrderDetails = useCallback(async (isRefresh = false) => {
+        // If we have order_number, fetch from API
+        if (orderNumber && userId) {
+            try {
+                if (!isRefresh) {
+                    setApiLoading(true);
+                }
+                setError(null);
+
+                const response = await orderAPI.getOrderDetails(orderNumber, userId);
+
+                if (response.data?.status && response.data?.data) {
+                    console.log('Order details fetched from API:', response.data.data);
+                    // API returns data in response.data.data
+                    setOrderData(response.data.data);
+                    setError(null);
+                } else {
+                    console.log('No order data in API response, using route params');
+                    // Fallback to route params
+                    setOrderData(routeOrder);
+                }
+            } catch (err) {
+                console.log('Error fetching order details:', err);
+                const errorMessage = err.response?.data?.message || err.message || 'Failed to load order details';
+                setError(errorMessage);
+                // Fallback to route params on error
+                setOrderData(routeOrder);
+            } finally {
+                setApiLoading(false);
+                setLoading(false);
+                if (isRefresh) {
+                    setRefreshing(false);
+                }
+            }
+        } else if (routeOrder) {
+            // No order number or userId, use route params directly
+            setOrderData(routeOrder);
+            setLoading(false);
+        }
+    }, [orderNumber, orderId, userId, routeOrder]);
+
+    // Fetch on mount
+    useEffect(() => {
+        if (userId || !orderNumber) {
+            fetchOrderDetails();
+        }
+    }, [orderNumber, orderId, userId, fetchOrderDetails]);
+
+    // Refresh on focus
+    useFocusEffect(
+        useCallback(() => {
+            if (userId && orderNumber) {
+                fetchOrderDetails();
+            }
+        }, [userId, orderNumber, fetchOrderDetails])
+    );
+
+    // Pull to refresh handler
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        fetchOrderDetails(true);
+    }, [fetchOrderDetails]);
+
+    // Build order from API data or route params
+    const order = buildOrder(orderData || routeOrder);
 
     const P = order.prices;
     const steps = order.steps || [];
     const current = Math.max(0, Math.min(order.currentStepIndex ?? 0, steps.length - 1));
 
-    if (loading) {
+    if (loading || apiLoading) {
         return (
             <SafeAreaView style={styles.safe}>
-                <SkeletonListScreen />
+                <StandardHeader
+                    title="Order Details"
+                    navigation={navigation}
+                    showGradient={true}
+                />
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={COLORS.brand} />
+                    <Text style={{ marginTop: 12, color: COLORS.sub }}>Loading order details...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (error && !orderData) {
+        return (
+            <SafeAreaView style={styles.safe}>
+                <StandardHeader
+                    title="Order Details"
+                    navigation={navigation}
+                    showGradient={true}
+                />
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                    <Ionicons name="alert-circle-outline" size={64} color={COLORS.sub} />
+                    <Text style={{ marginTop: 16, fontSize: 16, color: COLORS.text, fontWeight: '700', textAlign: 'center' }}>
+                        Failed to load order details
+                    </Text>
+                    <Text style={{ marginTop: 8, fontSize: 14, color: COLORS.sub, textAlign: 'center' }}>
+                        {error}
+                    </Text>
+                </View>
             </SafeAreaView>
         );
     }
@@ -284,13 +438,24 @@ const OrderDetailsScreen = ({ route, navigation }) => {
     return (
         <SafeAreaView style={styles.safe}>
             {/* Standard Header */}
-            <StandardHeader 
+            <StandardHeader
                 title="Order Details"
                 navigation={navigation}
                 showGradient={true}
             />
 
-            <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+            <ScrollView
+                contentContainerStyle={styles.body}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[COLORS.brand]}
+                        tintColor={COLORS.brand}
+                    />
+                }
+            >
                 {/* Order summary strip */}
                 <View style={styles.orderStrip}>
                     <View>
@@ -324,7 +489,15 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                     }
                 >
                     <InfoRow icon="airplane" label="Carrier" value={order.tracking?.carrier || '-'} COLORS={COLORS} styles={styles} />
-                    <InfoRow icon="barcode" label="Tracking code" value={order.tracking?.code || '-'} COLORS={COLORS} styles={styles} multiline={true} />
+                    <InfoRow
+                        icon="barcode"
+                        label="Tracking code"
+                        value={order.tracking?.code || '-'}
+                        COLORS={COLORS}
+                        styles={styles}
+                        multiline={true}
+                        onPress={order.tracking?.url ? () => Linking.openURL(order.tracking.url) : null}
+                    />
                     <InfoRow icon="time-outline" label="Estimated delivery" value={order.tracking?.eta || '-'} COLORS={COLORS} styles={styles} />
                 </Section>
 

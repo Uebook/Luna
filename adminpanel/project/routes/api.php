@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::group(['prefix' => 'v1'], function () {
-    Route::group(['prefix' => 'user'], function () {
+
+Route::group(['prefix' => 'user'], function () {
 
     Route::post('registration', 'Api\Auth\AuthController@register');
     Route::post('login', 'Api\Auth\AuthController@login');
@@ -136,12 +136,10 @@ Route::group(['prefix' => 'v1'], function () {
 
     });
 
-    });
-
 });
 
-Route::group(['prefix' => 'v1'], function () {
-    Route::group(['prefix' => 'front'], function () {
+
+Route::group(['prefix' => 'front'], function () {
 
     //------------ Frontend Controller ------------
     Route::get('/section-customization', 'Api\Front\FrontendController@section_customization');
@@ -212,7 +210,6 @@ Route::group(['prefix' => 'v1'], function () {
     Route::get('/get/countries','Api\Front\CheckoutController@countries');
     //------------ Checkout Controller ------------
 
-    });
 });
 
 Route::fallback(function () {

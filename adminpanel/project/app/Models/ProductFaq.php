@@ -25,4 +25,3 @@ class ProductFaq extends Model
 }
 
 
-

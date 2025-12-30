@@ -173,9 +173,18 @@ const getLanguageDisplayName = (langCode) => {
 // Helper function to get display names for currency codes
 const getCurrencyDisplayName = (currencyCode) => {
   const currencies = {
+    'USD': 'US Dollar ($)',
     'BHD': 'Bahraini Dinar (.د.ب)',
+    'EUR': 'Euro (€)',
+    'GBP': 'British Pound (£)',
+    'INR': 'Indian Rupee (₹)',
+    'AED': 'UAE Dirham (د.إ)',
+    'SAR': 'Saudi Riyal (﷼)',
+    'CAD': 'Canadian Dollar (C$)',
+    'AUD': 'Australian Dollar (A$)',
+    'JPY': 'Japanese Yen (¥)',
   };
-  return currencies[currencyCode] || 'BHD';
+  return currencies[currencyCode] || currencyCode || 'Select Currency';
 };
 
 // Helper function to get display names for countries
@@ -516,9 +525,7 @@ const SettingsScreen = ({ navigation }) => {
   );
 };
 
-export default SettingsScreen;
-
-/* ---------------- styles ---------------- */
+export default SettingsScreen;/* ---------------- styles ---------------- */
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
 
@@ -654,3 +661,4 @@ const styles = StyleSheet.create({
   btnDarkText: { color: '#fff', fontWeight: '800' },
   btnText: { color: '#fff', fontWeight: '800' },
 });
+

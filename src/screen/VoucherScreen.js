@@ -25,7 +25,7 @@ import { useTheme } from '../context/ThemeContext';
 import StandardHeader from '../components/StandardHeader';
 import { SkeletonListScreen } from '../components/SkeletonLoader';
 import { useSkeletonLoader } from '../hooks/useSkeletonLoader';
-import api from '../services/api';
+import { voucherAPI, getUserId } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 
@@ -332,9 +332,7 @@ const VoucherScreen = ({ navigation }) => {
 
             try {
                 setLoading(true);
-                const response = await api.post('/voucher/get-user-vouchers', {
-                    user_id: userId,
-                });
+                const response = await voucherAPI.getUserVouchers(userId);
 
                 if (response.data.status && response.data.vouchers) {
                     setVouchers(response.data.vouchers);
@@ -396,9 +394,9 @@ const VoucherScreen = ({ navigation }) => {
         }
 
         try {
-            const response = await api.post('/voucher/collect', {
+            const response = await voucherAPI.collectVoucher({
                 user_id: userId,
-                coupon_id: couponId,
+                voucher_id: couponId,
             });
             if (response.data.status) {
                 // Update local state
@@ -413,7 +411,7 @@ const VoucherScreen = ({ navigation }) => {
             }
         } catch (error) {
             console.log('Error collecting voucher:', error);
-            Alert.alert('Error', error.response?.data?.message || 'Failed to collect voucher. Please try again.');
+            Alert.alert('Error', 'Failed to collect voucher. Please try again.');
         }
     };
 
@@ -439,88 +437,66 @@ const VoucherScreen = ({ navigation }) => {
                 showGradient={true}
             />
 
-            {/* Tabs (vertical sections) */}
-            <View style={styles.tabsContainer}>
+            {/* Tabs (horizontal) */}
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={[styles.tabs, isRTL && { flexDirection: 'row-reverse' }]}
+            >
                 {tabs.map(tab => (
                     <TouchableOpacity
                         key={tab.key}
-                        style={[styles.tabSection, activeTab === tab.key && styles.activeTabSection]}
+                        style={[styles.tab, activeTab === tab.key && styles.activeTab]}
                         onPress={() => setActiveTab(tab.key)}
-                        activeOpacity={0.8}
                     >
-                        <View style={[styles.tabHeader, activeTab === tab.key && styles.activeTabHeader]}>
-                            <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]} numberOfLines={1}>
-                                {tab.label}
-                            </Text>
-                        </View>
+                        <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]} numberOfLines={1}>
+                            {tab.label}
+                        </Text>
                     </TouchableOpacity>
                 ))}
-            </View>
+            </ScrollView>
 
             {/* Content */}
-            <View style={[styles.contentWrapper, activeTab === 'active' && styles.activeContentWrapper]}>
-                {activeTab === 'progress' ? (
-                    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                        <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-                            {vouchers.length === 0 ? (
-                                <View style={styles.emptyState}>
-                                    <Icon name="gift-outline" size={64} color={THEME.muted || THEME.sub} />
-                                    <Text style={styles.emptyText}>No rewards in progress</Text>
+            {activeTab === 'progress' ? (
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                    <View style={{ paddingHorizontal: 16 }}>
+                        <View style={styles.gridContainer}>
+                            {vouchers.map((item) => (
+                                <View key={item.id} style={[styles.rewardItem, { width: (scrWidth - 48) / 2 }]}>
+                                    <View style={styles.progressCircle}>
+                                        <Icon
+                                            name={item.icon || 'gift-outline'}
+                                            size={28}
+                                            color={THEME.p1}
+                                        />
+                                    </View>
+                                    <Text style={[styles.rewardTitle, isRTL && { textAlign: 'right' }]}>{item.title}</Text>
+                                    <Text style={[styles.rewardDesc, isRTL && { textAlign: 'right' }]}>{item.description}</Text>
                                 </View>
-                            ) : (
-                                <View style={styles.gridContainer}>
-                                    {vouchers.map((item) => (
-                                        <View key={item.id} style={[styles.rewardItem, { width: (scrWidth - 48) / 2 }]}>
-                                            <View style={styles.progressCircle}>
-                                                <Icon
-                                                    name={item.icon || 'gift-outline'}
-                                                    size={28}
-                                                    color={THEME.p1}
-                                                />
-                                            </View>
-                                            <Text style={[styles.rewardTitle, isRTL && { textAlign: 'right' }]}>{item.title}</Text>
-                                            <Text style={[styles.rewardDesc, isRTL && { textAlign: 'right' }]}>{item.description}</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            )}
+                            ))}
                         </View>
-                    </ScrollView>
-                ) : (
-                    <FlatList
-                        data={listData}
-                        keyExtractor={(it) => String(it.id)}
-                        renderItem={({ item }) => (
-                            <VoucherCard
-                                item={item}
-                                t={t}
-                                isRTL={isRTL}
-                                THEME={THEME}
-                                isDark={isDark}
-                                styles={styles}
-                                userId={userId}
-                                onCollect={handleCollectVoucher}
-                            />
-                        )}
-                        ListEmptyComponent={
-                            <View style={[styles.emptyState, activeTab === 'active' && { backgroundColor: THEME.p1 }]}>
-                                <Icon
-                                    name="ticket-outline"
-                                    size={64}
-                                    color={activeTab === 'active' ? THEME.white : (THEME.muted || THEME.sub)}
-                                />
-                                <Text style={[styles.emptyText, activeTab === 'active' && { color: THEME.white }]}>
-                                    {activeTab === 'active'
-                                        ? 'No active rewards available'
-                                        : 'No expired rewards'}
-                                </Text>
-                            </View>
-                        }
-                        contentContainerStyle={[styles.content, { paddingBottom: 120 }]}
-                        showsVerticalScrollIndicator={false}
-                    />
-                )}
-            </View>
+                    </View>
+                </ScrollView>
+            ) : (
+                <FlatList
+                    data={listData}
+                    keyExtractor={(it) => String(it.id)}
+                    renderItem={({ item }) => (
+                        <VoucherCard
+                            item={item}
+                            t={t}
+                            isRTL={isRTL}
+                            THEME={THEME}
+                            isDark={isDark}
+                            styles={styles}
+                            userId={userId}
+                            onCollect={handleCollectVoucher}
+                        />
+                    )}
+                    contentContainerStyle={[styles.content, { paddingBottom: 120 }]}
+                    showsVerticalScrollIndicator={false}
+                />
+            )}
 
             {/* Floating Spin (active only) */}
             {activeTab === 'active' && (
@@ -596,69 +572,12 @@ const createStyles = (THEME, isDark) => StyleSheet.create({
         letterSpacing: 0.3,
     },
 
-    /* tabs - vertical sections */
-    tabsContainer: {
-        flexDirection: 'row',
-        paddingHorizontal: 16,
-        paddingTop: 12,
-        gap: 8,
-    },
-    tabSection: {
-        flex: 1,
-        borderRadius: 16,
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
-        backgroundColor: THEME.card,
-        borderWidth: 1,
-        borderColor: THEME.line,
-        overflow: 'hidden',
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.05,
-                shadowRadius: 4,
-            },
-            android: {
-                elevation: 2,
-            },
-        }),
-    },
-    activeTabSection: {
-        borderColor: THEME.p1,
-        borderWidth: 2,
-    },
-    tabHeader: {
-        paddingVertical: 12,
-        paddingHorizontal: 12,
-        backgroundColor: THEME.card,
-        borderBottomWidth: 1,
-        borderBottomColor: THEME.line,
-    },
-    activeTabHeader: {
-        backgroundColor: THEME.p1,
-        borderBottomColor: THEME.p1,
-    },
-    tabText: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: THEME.text,
-        textAlign: 'center',
-    },
-    activeTabText: {
-        color: THEME.white,
-    },
-    contentWrapper: {
-        flex: 1,
-        backgroundColor: THEME.bg,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        marginTop: -20,
-        paddingTop: 20,
-    },
-    activeContentWrapper: {
-        backgroundColor: THEME.p1,
-    },
+    /* tabs */
+    tabs: { paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+    tab: { paddingHorizontal: 14, paddingVertical: 10, backgroundColor: isDark ? THEME.line : '#F4F4F4', borderRadius: 12, marginHorizontal: 4 },
+    activeTab: { backgroundColor: THEME.p1 },
+    tabText: { fontSize: 14, fontWeight: '600', color: isDark ? THEME.sub : '#000' },
+    activeTabText: { color: '#fff' },
 
     /* voucher card */
     voucherWrapper: {
@@ -802,47 +721,8 @@ const createStyles = (THEME, isDark) => StyleSheet.create({
     rewardDesc: { fontSize: 13, textAlign: 'center', color: THEME.sub },
 
     /* FAB */
-    fab: {
-        position: 'absolute',
-        right: 16,
-        bottom: 24,
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-        backgroundColor: THEME.p1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-            },
-            android: {
-                elevation: 8,
-            },
-        }),
-    },
-    fabText: {
-        color: '#fff',
-        fontWeight: '900',
-        fontSize: 16,
-        letterSpacing: 0.5,
-    },
-    emptyState: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 60,
-        paddingHorizontal: 24,
-    },
-    emptyText: {
-        marginTop: 16,
-        fontSize: 16,
-        fontWeight: '600',
-        color: THEME.sub,
-        textAlign: 'center',
-    },
+    fab: { position: 'absolute', right: 16, bottom: 24, width: 64, height: 64, borderRadius: 32, backgroundColor: THEME.p1, alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8 },
+    fabText: { color: '#fff', fontWeight: '900', fontSize: 16 },
 
     /* modal base */
     modalWrap: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },

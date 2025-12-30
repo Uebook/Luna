@@ -4,7 +4,7 @@ const DUMMY_PRODUCTS_10 = [
     type: 'clothing',
     name: 'Unstoppable Woven Joggers - Grey',
     price: 30.0,
-    currency: 'BHD',
+    currency: 'KWD',
     thumbnail: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=800&auto=format&fit=crop',
     gallery: [
       'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?q=80&w=1200&auto=format&fit=crop',
@@ -14,7 +14,7 @@ const DUMMY_PRODUCTS_10 = [
     attributes: { fit: 'Loose', fabric: 'Poly-Cotton', gender: 'women' },
     detail: {
       title: 'Unstoppable Woven Joggers - Grey',
-      priceText: '30.000 BHD',
+      priceText: '30.000 KWD',
       rating: { value: 4.4, count: 202 },
       returnPolicy: { refundable: true, days: 7, text: 'Refundable • 7-day return' },
       description: 'Relaxed-fit joggers ideal for everyday comfort with breathable fabric and tapered cuffs.',
@@ -59,8 +59,8 @@ const DUMMY_PRODUCTS_10 = [
         { id: 'r2', name: 'Aarav', avatar: 'https://randomuser.me/api/portraits/men/14.jpg', rating: 5, text: 'Great quality for the price, tapered nicely.', date: '05 Aug 2025' },
       ],
       similar: [
-        { id: 'p2', name: 'AirFlex Runner', priceText: '59.000 BHD', thumbnail: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=800&auto=format&fit=crop' },
-        { id: 'p9', name: 'ProFit Yoga Mat', priceText: '8.900 BHD', thumbnail: 'https://images.unsplash.com/photo-1599050751695-4cda2b3c9a0b?q=80&w=800&auto=format&fit=crop' },
+        { id: 'p2', name: 'AirFlex Runner', priceText: '59.000 KWD', thumbnail: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=800&auto=format&fit=crop' },
+        { id: 'p9', name: 'ProFit Yoga Mat', priceText: '8.900 KWD', thumbnail: 'https://images.unsplash.com/photo-1599050751695-4cda2b3c9a0b?q=80&w=800&auto=format&fit=crop' },
       ],
     },
   },
@@ -69,7 +69,7 @@ const DUMMY_PRODUCTS_10 = [
     type: 'shoes',
     name: 'AirFlex Runner',
     price: 59.0,
-    currency: 'BHD',
+    currency: 'KWD',
     thumbnail: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=800&auto=format&fit=crop',
     gallery: [
       'https://images.unsplash.com/photo-1543508282-6319a3e2621f?q=80&w=1200&auto=format&fit=crop',
@@ -78,7 +78,7 @@ const DUMMY_PRODUCTS_10 = [
     attributes: { sizeSystem: 'EU', gender: 'men' },
     detail: {
       title: 'AirFlex Runner',
-      priceText: '59.000 BHD',
+      priceText: '59.000 KWD',
       rating: { value: 4.6, count: 128 },
       returnPolicy: { refundable: true, days: 14, text: 'Refundable • 14-day return' },
       description: 'Lightweight running shoes with breathable mesh and responsive cushioning.',
@@ -111,7 +111,7 @@ const DUMMY_PRODUCTS_10 = [
         { id: 'r2', name: 'Sami', avatar: 'https://randomuser.me/api/portraits/men/55.jpg', rating: 4, text: 'Good grip on pavement, stylish too.', date: '14 Jul 2025' },
       ],
       similar: [
-        { id: 'p1', name: 'Unstoppable Woven Joggers - Grey', priceText: '30.000 BHD', thumbnail: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?q=80&w=800&auto=format&fit=crop' },
+        { id: 'p1', name: 'Unstoppable Woven Joggers - Grey', priceText: '30.000 KWD', thumbnail: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?q=80&w=800&auto=format&fit=crop' },
       ],
     },
   },
@@ -120,7 +120,7 @@ const DUMMY_PRODUCTS_10 = [
     type: 'electronics',
     name: 'VoltX Wireless Earbuds',
     price: 24.9,
-    currency: 'BHD',
+    currency: 'KWD',
     thumbnail: 'https://randomuser.me/api/portraits/men/52.jpg',
     gallery: [
       'https://images.unsplash.com/photo-1589902868073-5cdeac1c2231?q=80&w=1200&auto=format&fit=crop',
@@ -129,7 +129,7 @@ const DUMMY_PRODUCTS_10 = [
     attributes: { warranty: '12 months', btVersion: '5.3' },
     detail: {
       title: 'VoltX Wireless Earbuds',
-      priceText: '24.900 BHD',
+      priceText: '24.900 KWD',
       rating: { value: 4.1, count: 540 },
       returnPolicy: { refundable: true, days: 15, text: 'Refundable • 15-day return' },
       description: 'Active noise cancellation with 30h total playtime and low-latency mode.',
@@ -147,7 +147,7 @@ const DUMMY_PRODUCTS_10 = [
         { id: 'r2', name: 'Sara', avatar: 'https://randomuser.me/api/portraits/women/8.jpg', rating: 4, text: 'Pairs fast with my phone. Case is compact.', date: '03 Aug 2025' },
       ],
       similar: [
-        { id: 'p10', name: 'Aurora Pendant Necklace', priceText: '29.000 BHD', thumbnail: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=800&auto=format&fit=crop' },
+        { id: 'p10', name: 'Aurora Pendant Necklace', priceText: '29.000 KWD', thumbnail: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=800&auto=format&fit=crop' },
       ],
     },
   },
@@ -157,7 +157,7 @@ const DUMMY_PRODUCTS_10 = [
     type: 'grocery',
     name: 'Organic Almonds 500g',
     price: 3.2,
-    currency: 'BHD',
+    currency: 'KWD',
     thumbnail: 'https://images.unsplash.com/photo-1475855581690-80accde3ae2b?q=80&w=800&auto=format&fit=crop',
     gallery: [
       'https://images.unsplash.com/photo-1486887396153-fa416526c108?q=80&w=1200&auto=format&fit=crop',
@@ -166,7 +166,7 @@ const DUMMY_PRODUCTS_10 = [
     detail: {
       title: 'Organic Almonds',
       /** default to the 500g pack price */
-      priceText: '3.200 BHD',
+      priceText: '3.200 KWD',
       rating: { value: 4.7, count: 86 },
       returnPolicy: { refundable: false, text: 'Non-returnable (Food item)' },
       description: 'High-quality organic almonds. Resealable pack.',
@@ -174,26 +174,26 @@ const DUMMY_PRODUCTS_10 = [
         { label: 'Weight', value: '500g' },
         { label: 'Country', value: 'USA' },
       ],
-      /** Each variation has its own priceBHD and gallery */
+      /** Each variation has its own priceKWD and gallery */
       variations: [
         {
           id: 'v1',
           label: '250g Pack',
-          priceBHD: 1.900,
+          priceKWD: 1.900,
           gallery: ['https://images.unsplash.com/photo-1486887396153-fa416526c108?q=80&w=1200&auto=format&fit=crop'],
           sizes: []
         },
         {
           id: 'v2',
           label: '500g Pack',
-          priceBHD: 3.200,
+          priceKWD: 3.200,
           gallery: ['https://images.unsplash.com/photo-1475855581690-80accde3ae2b?q=80&w=1200&auto=format&fit=crop'],
           sizes: []
         },
         {
           id: 'v3',
           label: '1kg Pack',
-          priceBHD: 5.900,
+          priceKWD: 5.900,
           gallery: ['https://images.unsplash.com/photo-1475855581690-80accde3ae2b?q=80&w=1200&auto=format&fit=crop'],
           sizes: []
         },
@@ -205,7 +205,7 @@ const DUMMY_PRODUCTS_10 = [
         {
           id: 'p8',
           name: 'Stack & Learn Blocks',
-          priceText: '5.000 BHD',
+          priceText: '5.000 KWD',
           thumbnail: 'https://images.unsplash.com/photo-1596495578065-8a3a5dcb4f4c?q=80&w=800&auto=format&fit=crop',
         },
       ],
@@ -216,7 +216,7 @@ const DUMMY_PRODUCTS_10 = [
     type: 'beauty',
     name: 'Velvet Matte Lipstick',
     price: 6.5,
-    currency: 'BHD',
+    currency: 'KWD',
     thumbnail: 'https://images.unsplash.com/photo-1585386959984-3d92f9f1d9d5?q=80&w=800&auto=format&fit=crop',
     gallery: [
       'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=1200&auto=format&fit=crop',
@@ -225,7 +225,7 @@ const DUMMY_PRODUCTS_10 = [
     attributes: { finish: 'Matte', ingredients: 'Vitamin E, Shea Butter' },
     detail: {
       title: 'Velvet Matte Lipstick',
-      priceText: '6.500 BHD',
+      priceText: '6.500 KWD',
       rating: { value: 4.3, count: 320 },
       returnPolicy: { refundable: true, days: 7, text: 'Refundable • 7-day return (unused)' },
       description: 'Long-lasting matte color infused with nourishing ingredients for smooth lips.',
@@ -241,7 +241,7 @@ const DUMMY_PRODUCTS_10 = [
         { id: 'r1', name: 'Layla', avatar: 'https://randomuser.me/api/portraits/women/2.jpg', rating: 5, text: 'Color payoff is amazing and not drying.', date: '02 Aug 2025' },
       ],
       similar: [
-        { id: 'p10', name: 'Aurora Pendant Necklace', priceText: '29.000 BHD', thumbnail: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=800&auto=format&fit=crop' },
+        { id: 'p10', name: 'Aurora Pendant Necklace', priceText: '29.000 KWD', thumbnail: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=800&auto=format&fit=crop' },
       ],
     },
   },
@@ -250,7 +250,7 @@ const DUMMY_PRODUCTS_10 = [
     type: 'furniture',
     name: 'Nordic Coffee Table',
     price: 45.0,
-    currency: 'BHD',
+    currency: 'KWD',
     thumbnail: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?q=80&w=800&auto=format&fit=crop',
     gallery: [
       'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?q=80&w=1200&auto=format&fit=crop',
@@ -259,7 +259,7 @@ const DUMMY_PRODUCTS_10 = [
     attributes: { material: 'Oak veneer', dimensions: '120×60×45 cm' },
     detail: {
       title: 'Nordic Coffee Table',
-      priceText: '45.000 BHD',
+      priceText: '45.000 KWD',
       rating: { value: 4.2, count: 64 },
       returnPolicy: { refundable: true, days: 10, text: 'Refundable • 10-day return' },
       description: 'Minimal table with rounded edges and a warm wood finish.',
@@ -275,7 +275,7 @@ const DUMMY_PRODUCTS_10 = [
         { id: 'r1', name: 'Jon', avatar: 'https://randomuser.me/api/portraits/men/7.jpg', rating: 4, text: 'Looks premium and easy to assemble.', date: '30 Jun 2025' },
       ],
       similar: [
-        { id: 'p9', name: 'ProFit Yoga Mat', priceText: '8.900 BHD', thumbnail: 'https://images.unsplash.com/photo-1599050751695-4cda2b3c9a0b?q=80&w=800&auto=format&fit=crop' },
+        { id: 'p9', name: 'ProFit Yoga Mat', priceText: '8.900 KWD', thumbnail: 'https://images.unsplash.com/photo-1599050751695-4cda2b3c9a0b?q=80&w=800&auto=format&fit=crop' },
       ],
     },
   },
@@ -284,7 +284,7 @@ const DUMMY_PRODUCTS_10 = [
     type: 'book',
     name: 'The Art of Focus',
     price: 3.9,
-    currency: 'BHD',
+    currency: 'KWD',
     thumbnail: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=800&auto=format&fit=crop',
     gallery: [
       'https://images.unsplash.com/photo-1513475382585-d06e58bcb0ea?q=80&w=1200&auto=format&fit=crop',
@@ -292,7 +292,7 @@ const DUMMY_PRODUCTS_10 = [
     attributes: { author: 'Lena Shaw', ISBN: '978-1-23456-789-7' },
     detail: {
       title: 'The Art of Focus',
-      priceText: '3.900 BHD',
+      priceText: '3.900 KWD',
       rating: { value: 4.5, count: 190 },
       returnPolicy: { refundable: true, days: 7, text: 'Refundable • 7-day return' },
       description: 'A practical guide to deep work and attention.',
@@ -306,7 +306,7 @@ const DUMMY_PRODUCTS_10 = [
         { id: 'r1', name: 'Priya', avatar: 'https://randomuser.me/api/portraits/women/28.jpg', rating: 5, text: 'Concise and actionable. Loved it.', date: '11 Aug 2025' },
       ],
       similar: [
-        { id: 'p3', name: 'VoltX Wireless Earbuds', priceText: '24.900 BHD', thumbnail: 'https://images.unsplash.com/photo-1585386959984-a4155223168f?q=80&w=800&auto=format&fit=crop' },
+        { id: 'p3', name: 'VoltX Wireless Earbuds', priceText: '24.900 KWD', thumbnail: 'https://images.unsplash.com/photo-1585386959984-a4155223168f?q=80&w=800&auto=format&fit=crop' },
       ],
     },
   },
@@ -315,7 +315,7 @@ const DUMMY_PRODUCTS_10 = [
     type: 'toy',
     name: 'Stack & Learn Blocks',
     price: 5.0,
-    currency: 'BHD',
+    currency: 'KWD',
     thumbnail: 'https://images.unsplash.com/photo-1596495578065-8a3a5dcb4f4c?q=80&w=800&auto=format&fit=crop',
     gallery: [
       'https://images.unsplash.com/photo-1587654780291-39c9404d746b?q=80&w=1200&auto=format&fit=crop',
@@ -324,7 +324,7 @@ const DUMMY_PRODUCTS_10 = [
     attributes: { ageRange: '3–6 yrs', pieces: 48 },
     detail: {
       title: 'Stack & Learn Blocks',
-      priceText: '5.000 BHD',
+      priceText: '5.000 KWD',
       rating: { value: 4.8, count: 73 },
       returnPolicy: { refundable: true, days: 15, text: 'Refundable • 15-day return' },
       description: 'Colorful blocks to build shapes, letters and numbers.',
@@ -337,7 +337,7 @@ const DUMMY_PRODUCTS_10 = [
         { id: 'r1', name: 'Ahmed', avatar: 'https://randomuser.me/api/portraits/men/81.jpg', rating: 5, text: 'My kid learns letters while playing — amazing!', date: '08 Aug 2025' },
       ],
       similar: [
-        { id: 'p4', name: 'Organic Almonds 500g', priceText: '3.200 BHD', thumbnail: 'https://images.unsplash.com/photo-1475855581690-80accde3ae2b?q=80&w=800&auto=format&fit=crop' },
+        { id: 'p4', name: 'Organic Almonds 500g', priceText: '3.200 KWD', thumbnail: 'https://images.unsplash.com/photo-1475855581690-80accde3ae2b?q=80&w=800&auto=format&fit=crop' },
       ],
     },
   },
@@ -346,7 +346,7 @@ const DUMMY_PRODUCTS_10 = [
     type: 'sports',
     name: 'ProFit Yoga Mat',
     price: 8.9,
-    currency: 'BHD',
+    currency: 'KWD',
     thumbnail: 'https://images.unsplash.com/photo-1599050751695-4cda2b3c9a0b?q=80&w=800&auto=format&fit=crop',
     gallery: [
       'https://images.unsplash.com/photo-1592432678016-e910b452f9a8?q=80&w=1200&auto=format&fit=crop',
@@ -355,7 +355,7 @@ const DUMMY_PRODUCTS_10 = [
     attributes: { thickness: '8mm', material: 'TPE' },
     detail: {
       title: 'ProFit Yoga Mat',
-      priceText: '8.900 BHD',
+      priceText: '8.900 KWD',
       rating: { value: 4.4, count: 211 },
       returnPolicy: { refundable: true, days: 10, text: 'Refundable • 10-day return' },
       description: 'Non-slip mat with excellent cushioning and grip.',
@@ -371,7 +371,7 @@ const DUMMY_PRODUCTS_10 = [
         { id: 'r1', name: 'Mina', avatar: 'https://randomuser.me/api/portraits/women/85.jpg', rating: 4, text: 'Soft yet stable. Doesn’t slip on tiles.', date: '18 Jun 2025' },
       ],
       similar: [
-        { id: 'p2', name: 'AirFlex Runner', priceText: '59.000 BHD', thumbnail: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=800&auto=format&fit=crop' },
+        { id: 'p2', name: 'AirFlex Runner', priceText: '59.000 KWD', thumbnail: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=800&auto=format&fit=crop' },
       ],
     },
   },
@@ -380,7 +380,7 @@ const DUMMY_PRODUCTS_10 = [
     type: 'jewelry',
     name: 'Aurora Pendant Necklace',
     price: 29.0,
-    currency: 'BHD',
+    currency: 'KWD',
     thumbnail: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=800&auto=format&fit=crop',
     gallery: [
       'https://images.unsplash.com/photo-1520962918287-7448c2878f65?q=80&w=1200&auto=format&fit=crop',
@@ -389,7 +389,7 @@ const DUMMY_PRODUCTS_10 = [
     attributes: { metal: '925 Sterling Silver', stone: 'CZ' },
     detail: {
       title: 'Aurora Pendant Necklace',
-      priceText: '29.000 BHD',
+      priceText: '29.000 KWD',
       rating: { value: 4.9, count: 41 },
       returnPolicy: { refundable: true, days: 7, text: 'Refundable • 7-day return' },
       description: 'Elegant pendant with shimmering stone on an adjustable chain.',
@@ -405,7 +405,7 @@ const DUMMY_PRODUCTS_10 = [
         { id: 'r1', name: 'Yara', avatar: 'https://randomuser.me/api/portraits/women/33.jpg', rating: 5, text: 'Sparkles beautifully, great gift choice.', date: '09 Aug 2025' },
       ],
       similar: [
-        { id: 'p5', name: 'Velvet Matte Lipstick', priceText: '6.500 BHD', thumbnail: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=800&auto=format&fit=crop' },
+        { id: 'p5', name: 'Velvet Matte Lipstick', priceText: '6.500 KWD', thumbnail: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=800&auto=format&fit=crop' },
       ],
     },
   },
@@ -414,7 +414,7 @@ const DUMMY_PRODUCTS_10 = [
     type: 'clothing',
     name: 'Classic Cotton T-Shirt',
     price: 12.0,
-    currency: 'BHD',
+    currency: 'KWD',
     thumbnail: 'https://images.unsplash.com/photo-1602810318383-e2b909b19f5e?q=80&w=800&auto=format&fit=crop',
     gallery: [
       'https://images.unsplash.com/photo-1602810318383-e2b909b19f5e?q=80&w=1200&auto=format&fit=crop',
@@ -423,7 +423,7 @@ const DUMMY_PRODUCTS_10 = [
     attributes: { fabric: '100% Cotton', gender: 'women' },
     detail: {
       title: 'Classic Cotton T-Shirt',
-      priceText: '12.000 BHD',
+      priceText: '12.000 KWD',
       rating: { value: 4.5, count: 142 },
       returnPolicy: { refundable: true, days: 14, text: 'Refundable • 14-day return' },
       description: 'Soft cotton T-shirt with a relaxed fit. Perfect for casual everyday wear.',
@@ -478,7 +478,7 @@ const DUMMY_PRODUCTS_10 = [
         {
           id: 'p1',
           name: 'Unstoppable Woven Joggers - Grey',
-          priceText: '30.000 BHD',
+          priceText: '30.000 KWD',
           thumbnail: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?q=80&w=800&auto=format&fit=crop',
         },
       ],

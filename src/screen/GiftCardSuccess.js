@@ -46,8 +46,6 @@ export default function GiftCardSuccess({ route, navigation }) {
         form = {},
         amount = 0,
         orderId,
-        giftCardCode,
-        giftCard = {},
         currency: currencyFromRoute,
     } = route?.params || {};
 
@@ -151,12 +149,6 @@ export default function GiftCardSuccess({ route, navigation }) {
                         <Text style={[styles.cardAmount, isRTL ? { left: 14 } : { right: 14 }]}>
                             {amountText}
                         </Text>
-                        {giftCardCode && (
-                            <View style={[styles.cardCodeContainer, isRTL ? { right: 14 } : { left: 14 }, { bottom: 40 }]}>
-                                <Text style={styles.cardCodeLabel}>Code:</Text>
-                                <Text style={styles.cardCode}>{giftCardCode}</Text>
-                            </View>
-                        )}
                     </View>
                 </View>
 
@@ -307,9 +299,6 @@ const createStyles = (COLORS) => StyleSheet.create({
     },
     cardBrand: { position: 'absolute', bottom: 12, color: COLORS.accent, fontSize: 16, fontWeight: '800' },
     cardAmount: { position: 'absolute', bottom: 12, color: COLORS.accent, fontSize: 16, fontWeight: '800' },
-    cardCodeContainer: { position: 'absolute', bottom: 12 },
-    cardCodeLabel: { color: COLORS.sub, fontSize: 10, marginBottom: 2 },
-    cardCode: { color: COLORS.accent, fontSize: 12, fontWeight: '800', fontFamily: 'monospace', letterSpacing: 1 },
 
     statusRow: {
         flexDirection: 'row',

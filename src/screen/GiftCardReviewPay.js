@@ -20,7 +20,7 @@ import i18n from '../i18n';
 import { useTheme } from '../context/ThemeContext';
 import { SkeletonCheckoutScreen } from '../components/SkeletonLoader';
 import { useSkeletonLoader } from '../hooks/useSkeletonLoader';
-import api from '../services/api';
+import { giftCardAPI, getUserId } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SIZES = {
@@ -114,41 +114,35 @@ export default function GiftCardReviewPay({ route, navigation }) {
                 return;
             }
 
-            const parsed = JSON.parse(userData);
-            const userId = parsed.user?.id || parsed.id;
+            const userId = await getUserId();
             
             if (!userId || !selectedCard?.id) {
                 Alert.alert('Error', 'Invalid user or gift card');
                 return;
             }
 
-            // Extract email and phone from contact
+            // Extract email from contact (if it's an email)
             const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form?.contact || '');
-            const isPhone = /^[0-9+\-\s]{7,}$/.test(form?.contact || '');
             const recipientEmail = isEmail ? form.contact : null;
-            const recipientPhone = isPhone ? form.contact : null;
             const recipientName = form?.name || '';
-            const amount = form?.amount || selectedCard.value || selectedCard.price || 0;
 
             // Call purchase API
-            const response = await api.post('/gift-card/purchase', {
+            const response = await giftCardAPI.purchaseGiftCard({
                 user_id: userId,
                 gift_card_id: selectedCard.id,
                 recipient_email: recipientEmail,
-                recipient_phone: recipientPhone,
                 recipient_name: recipientName,
                 message: form?.message || '',
-                amount: amount,
+                amount: form?.amount || selectedCard.value || selectedCard.price,
             });
 
-            if (response.data.status && response.data.data) {
+            if (response.data.status) {
                 navigation.replace('GiftCardSuccess', {
                     selectedCard,
                     form,
-                    amount: response.data.data.amount || amount,
-                    orderId: response.data.data.purchase_id,
-                    giftCardCode: response.data.data.code,
-                    giftCard: response.data.data.gift_card,
+                    amount: form?.amount || selectedCard.value || selectedCard.price,
+                    orderId: response.data.purchase_id,
+                    giftCardCode: response.data.code,
                 });
             } else {
                 Alert.alert('Error', response.data.message || 'Failed to purchase gift card');

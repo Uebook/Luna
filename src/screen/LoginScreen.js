@@ -19,11 +19,11 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import CountryPicker from 'react-native-country-picker-modal';
-import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import useUserStore from '../store/UserStore';
 import CustomAlert from '../component/CustomAlert';
 import { useTheme } from '../context/ThemeContext';
+import { authAPI } from '../services/api';
 
 const USER_STORAGE_KEY = 'luna_user';
 
@@ -127,18 +127,8 @@ const LoginScreen = ({ navigation }) => {
 
     setLoading(true);
 
-    const formData = new FormData();
-    formData.append('email_phone', value.trim());
-
     try {
-      const res = await axios.post(
-        'https://luna-api.proteinbros.in/public/api/v1/auth/login',
-        formData,
-        {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 15000
-        }
-      );
+      const res = await authAPI.login(value.trim());
 
       if (res?.data?.status) {
         // If user data is returned, set it in the store and save to AsyncStorage
@@ -181,18 +171,7 @@ const LoginScreen = ({ navigation }) => {
 
     setVerifyLoading(true);
     try {
-      const formData = new FormData();
-      formData.append('email_phone', userEmailPhone);
-      formData.append('otp', otp.trim());
-
-      const res = await axios.post(
-        'https://luna-api.proteinbros.in/public/api/v1/auth/verify-otp',
-        formData,
-        {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 15000
-        }
-      );
+      const res = await authAPI.verifyOtp(userEmailPhone, otp.trim());
 
       if (res?.data?.status) {
         setShowOTPModal(false);

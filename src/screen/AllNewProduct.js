@@ -16,14 +16,12 @@ import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
 import { SkeletonProductListScreen } from '../components/SkeletonLoader';
+import { homeAPI, IMAGE_BASE_URL } from '../services/api';
 
 /* Helpers */
 const ms = (w, size, factor = 0.25) =>
     size + (Math.max(w, 320) / 375 - 1) * size * factor;
 const getColumns = (w) => (w >= 1000 ? 4 : w >= 700 ? 3 : 2);
-
-const BASE_URL = 'https://luna-api.proteinbros.in/public/api/v1';
-const IMAGE_BASE_URL = 'https://proteinbros.in/assets/images/products/';
 
 // Helper function to get image URL
 const getImageUrl = (photo) => {
@@ -41,29 +39,8 @@ const fetchLatestProducts = async () => {
     try {
         console.log('Fetching latest products...');
 
-        const response = await fetch(`${BASE_URL}/screen/products/latest`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({}),
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const responseText = await response.text();
-        console.log('Raw latest products response:', responseText.substring(0, 200));
-
-        let data;
-        try {
-            data = JSON.parse(responseText);
-        } catch (parseError) {
-            console.error('JSON parse error:', parseError);
-            throw new Error('Invalid JSON response from server');
-        }
+        const response = await homeAPI.getLatestProducts();
+        const data = response.data;
 
         console.log('Parsed latest products data:', data);
 

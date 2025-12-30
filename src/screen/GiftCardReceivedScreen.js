@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import { useTheme } from '../context/ThemeContext';
 import StandardHeader from '../components/StandardHeader';
-import api from '../services/api';
+import { giftCardAPI, getUserId } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useFocusEffect } from '@react-navigation/native';
@@ -47,21 +47,13 @@ export default function GiftCardReceivedScreen({ navigation }) {
 
     const fetchReceivedGifts = useCallback(async () => {
         try {
-            const userData = await AsyncStorage.getItem('luna_user');
-            if (!userData) {
-                setLoading(false);
-                return;
-            }
-
-            const user = JSON.parse(userData);
-            const userId = user.user?.id || user.id;
-
+            const userId = await getUserId();
             if (!userId) {
                 setLoading(false);
                 return;
             }
 
-            const response = await api.post('/gift-card/received', {
+            const response = await giftCardAPI.getReceivedGiftCards({
                 user_id: userId,
             });
             

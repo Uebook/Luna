@@ -649,11 +649,6 @@ const normalizeHomePayload = (payload = {}) => {
     trending: arr('trending_products'),
     sale: arr('sale_products'),
     flash: arr('flash_deal_products'),
-    
-    // New sections
-    popular: arr('popular_products'),
-    youMightLike: arr('you_might_like'),
-    recentReviews: arr('recent_reviews'),
 
     promo: payload.promo || payload.promoBanner || null,
   };
@@ -1109,9 +1104,6 @@ export default function HomeScreen({ navigation }) {
   const newArrivals = arr('latest');      // latest_products
   const celebs = arr('vendors');     // vendors list
   const blogs = arr('blogs');       // blog list
-  const popular = arr('popular');    // popular_products
-  const youMightLike = arr('youMightLike');  // you_might_like
-  const recentReviews = arr('recentReviews'); // recent_reviews
 
   const subcats = subcatsRaw.length ? subcatsRaw.slice(0, 6) : [];
   const HERO_H = Math.round(width * 0.45);
@@ -1178,7 +1170,7 @@ export default function HomeScreen({ navigation }) {
               progressBackgroundColor="#fff"
             />
           }
-          contentContainerStyle={{ paddingBottom: 20, backgroundColor: THEME.bg }}
+          contentContainerStyle={{ paddingBottom: 40, backgroundColor: THEME.bg }}
         >
           {/* Sticky header stack (Header + Category Bar) */}
           <View style={styles.stickyHeaderContainer}>
@@ -1426,55 +1418,6 @@ export default function HomeScreen({ navigation }) {
             </>
           )}
 
-          {/* MOST POPULAR */}
-          {!loading && popular.length > 0 && (
-            <>
-              <SectionHeader title="Most Popular" linkLabel="See all" onPressLink={() => { navigation.navigate('TopProductsScreen') }} styles={styles} />
-              <FlatList
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                data={popular}
-                keyExtractor={(i, idx) => i.id || `pop-${idx}`}
-                contentContainerStyle={{ paddingHorizontal: 12 }}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.productCard}
-                    activeOpacity={0.9}
-                    onPress={() => navigation?.navigate?.('ProductDetailScreen', { productId: item.id, product: item })}
-                  >
-                    <Img uri={ensureAbs(item.photo, IMG_BASE) || PLACEHOLDER} style={styles.productCardImg} />
-                    <View style={styles.productCardContent}>
-                      <Text numberOfLines={2} style={styles.productCardTitle}>{item.name || item.title}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-                        {item.average_rating > 0 && (
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Icon name="star" size={14} color="#FFB800" />
-                            <Text style={{ fontSize: 12, color: THEME.ink, marginLeft: 4, fontWeight: '600' }}>
-                              {Number(item.average_rating).toFixed(1)}
-                            </Text>
-                            {item.review_count > 0 && (
-                              <Text style={{ fontSize: 11, color: THEME.muted, marginLeft: 4 }}>
-                                ({item.review_count})
-                              </Text>
-                            )}
-                          </View>
-                        )}
-                        {item.price && (
-                          <Text style={styles.productCardPrice}>{priceBHD(item.price)}</Text>
-                        )}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                )}
-                initialNumToRender={6}
-                windowSize={7}
-                maxToRenderPerBatch={10}
-                removeClippedSubviews
-              />
-              <SectionDivider styles={styles} />
-            </>
-          )}
-
           {/* BEST SELLERS */}
           {!loading && bestSellers.length > 0 && (
             <>
@@ -1510,134 +1453,6 @@ export default function HomeScreen({ navigation }) {
                 maxToRenderPerBatch={10}
                 removeClippedSubviews
               />
-              <SectionDivider styles={styles} />
-            </>
-          )}
-
-          {/* YOU MIGHT LIKE */}
-          {!loading && youMightLike.length > 0 && (
-            <>
-              <SectionHeader title="You Might Like" styles={styles} />
-              <FlatList
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                data={youMightLike}
-                keyExtractor={(i, idx) => i.id || `yml-${idx}`}
-                contentContainerStyle={{ paddingHorizontal: 12 }}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.productCard}
-                    activeOpacity={0.9}
-                    onPress={() => navigation?.navigate?.('ProductDetailScreen', { productId: item.id, product: item })}
-                  >
-                    <Img uri={ensureAbs(item.photo, IMG_BASE) || PLACEHOLDER} style={styles.productCardImg} />
-                    <View style={styles.productCardContent}>
-                      <Text numberOfLines={2} style={styles.productCardTitle}>{item.name || item.title}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-                        {item.average_rating > 0 && (
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Icon name="star" size={14} color="#FFB800" />
-                            <Text style={{ fontSize: 12, color: THEME.ink, marginLeft: 4, fontWeight: '600' }}>
-                              {Number(item.average_rating).toFixed(1)}
-                            </Text>
-                          </View>
-                        )}
-                        {item.price && (
-                          <Text style={styles.productCardPrice}>{priceBHD(item.price)}</Text>
-                        )}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                )}
-                initialNumToRender={6}
-                windowSize={7}
-                maxToRenderPerBatch={10}
-                removeClippedSubviews
-              />
-              <SectionDivider styles={styles} />
-            </>
-          )}
-
-          {/* RECENT REVIEWS */}
-          {!loading && recentReviews.length > 0 && (
-            <>
-              <SectionHeader title="Recent Reviews" linkLabel="View all" onPressLink={() => { navigation.navigate('ReviewScreen') }} styles={styles} />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 8 }}
-              >
-                {recentReviews.map((review, idx) => (
-                  <TouchableOpacity
-                    key={review.id || `rev-${idx}`}
-                    style={{
-                      width: width * 0.85,
-                      backgroundColor: THEME.card,
-                      borderRadius: 16,
-                      padding: 16,
-                      marginRight: 12,
-                      shadowColor: THEME.shadow || '#000',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 8,
-                      elevation: 3,
-                    }}
-                    activeOpacity={0.9}
-                    onPress={() => navigation?.navigate?.('ProductDetailScreen', { productId: review.product_id, product: { id: review.product_id, name: review.product_name } })}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                      <Img
-                        uri={ensureAbs(review.user_photo, PROFILE_BASE) || PLACEHOLDER}
-                        style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12 }}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 14, fontWeight: '700', color: THEME.ink }}>
-                          {review.user_name || 'Anonymous'}
-                        </Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Icon
-                              key={star}
-                              name={star <= review.rating ? 'star' : 'star-outline'}
-                              size={14}
-                              color={star <= review.rating ? '#FFB800' : THEME.muted}
-                            />
-                          ))}
-                        </View>
-                      </View>
-                    </View>
-                    {review.review && (
-                      <Text
-                        numberOfLines={3}
-                        style={{ fontSize: 13, color: THEME.ink, lineHeight: 20, marginBottom: 12 }}
-                      >
-                        {review.review}
-                      </Text>
-                    )}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 12, borderTopWidth: 1, borderTopColor: THEME.line }}>
-                      <Img
-                        uri={ensureAbs(review.product_photo, IMG_BASE) || PLACEHOLDER}
-                        style={{ width: 50, height: 50, borderRadius: 8, marginRight: 12 }}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text numberOfLines={1} style={{ fontSize: 12, color: THEME.muted, marginBottom: 4 }}>
-                          Reviewed
-                        </Text>
-                        <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: '600', color: THEME.ink }}>
-                          {review.product_name}
-                        </Text>
-                        {review.product_price && (
-                          <Text style={{ fontSize: 12, color: THEME.p1, marginTop: 4, fontWeight: '700' }}>
-                            {priceBHD(review.product_price)}
-                          </Text>
-                        )}
-                      </View>
-                      <Icon name="chevron-forward" size={20} color={THEME.muted} />
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <SectionDivider styles={styles} />
             </>
           )}
 
@@ -1849,17 +1664,8 @@ const createStyles = (THEME) => StyleSheet.create({
   flashPricePill: { position: 'absolute', left: 8, bottom: 8, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 },
   flashPriceText: { color: '#fff', fontWeight: '800', fontSize: 12 },
   timerText: { fontSize: 12, fontWeight: '900', color: THEME.ink },
-  flashCard: { width: 160, height: 220, borderRadius: 12, backgroundColor: THEME.card, marginRight: 12, overflow: 'hidden', borderWidth: 1, borderColor: THEME.line, shadowColor: THEME.shadow || '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-  flashImg: { width: '100%', height: 140, backgroundColor: THEME.line },
-  flashContent: { padding: 10, flex: 1 },
-  flashTitle: { fontSize: 13, fontWeight: '600', color: THEME.ink, marginBottom: 6 },
-  flashPrice: { fontSize: 14, fontWeight: '700', color: THEME.p1 },
-  // Product card styles for Popular and You Might Like
-  productCard: { width: 160, height: 240, borderRadius: 12, backgroundColor: THEME.card, marginRight: 12, overflow: 'hidden', borderWidth: 1, borderColor: THEME.line, shadowColor: THEME.shadow || '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-  productCardImg: { width: '100%', height: 160, backgroundColor: THEME.line },
-  productCardContent: { padding: 12, flex: 1 },
-  productCardTitle: { fontSize: 13, fontWeight: '600', color: THEME.ink, marginBottom: 8, minHeight: 36 },
-  productCardPrice: { fontSize: 14, fontWeight: '700', color: THEME.p1 },
+  flashCard: { width: 120, height: 140, borderRadius: 12, backgroundColor: '#f5f5f5', marginRight: 12, overflow: 'hidden', borderWidth: 1, borderColor: THEME.line },
+  flashImg: { width: '100%', height: '100%' },
 
   /* Picks grid */
   picksGrid: { paddingHorizontal: 12, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },

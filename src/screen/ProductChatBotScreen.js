@@ -10,7 +10,7 @@ import { useTheme } from '../context/ThemeContext';
 import StandardHeader from '../components/StandardHeader';
 import useUserStore from '../store/UserStore';
 import i18n from '../i18n';
-import { apiHelpers } from '../services/api';
+import { productChatbotAPI, getUserId } from '../services/api';
 
 const ProductChatBotScreen = ({ route, navigation }) => {
   const { theme } = useTheme();
@@ -46,7 +46,7 @@ const ProductChatBotScreen = ({ route, navigation }) => {
     if (!user?.id || !product?.id) return;
 
     try {
-      const response = await apiHelpers.getChatHistory(user.id, product.id);
+      const response = await productChatbotAPI.getChatHistory(user.id, product.id);
       if (response.data.status && response.data.messages?.length > 0) {
         const historyMessages = response.data.messages.map(msg => ({
           id: msg.id.toString(),
@@ -75,10 +75,11 @@ const ProductChatBotScreen = ({ route, navigation }) => {
     const interval = setInterval(async () => {
       try {
         const lastMessage = messages[messages.length - 1];
-        const response = await apiHelpers.checkChatUpdates(
+        const lastMessageId = lastMessage?.queryId || lastMessage?.id;
+        const response = await productChatbotAPI.checkUpdates(
           user.id,
           product.id,
-          lastMessage?.timestamp
+          lastMessageId
         );
 
         if (response.data.status && response.data.new_answers?.length > 0) {
@@ -130,11 +131,10 @@ const ProductChatBotScreen = ({ route, navigation }) => {
     setLoading(true);
 
     try {
-      const response = await apiHelpers.sendProductQuery(
+      const response = await productChatbotAPI.productQuery(
         user.id,
         product.id,
-        text,
-        currentLang
+        text
       );
 
       if (response.data.status) {

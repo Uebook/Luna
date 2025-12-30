@@ -61,4 +61,3 @@ class CelebrityAuthController extends Controller
 
 
 
-

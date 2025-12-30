@@ -16,7 +16,7 @@ import { RtcEngine, ChannelProfileType, ClientRoleType, RtcSurfaceView } from 'r
 import Icon from 'react-native-vector-icons/Feather';
 import StandardHeader from '../components/StandardHeader';
 import { useTheme } from '../context/ThemeContext';
-import api from '../services/api';
+import { liveStreamAPI, getUserId } from '../services/api';
 
 // Agora Configuration - Should be moved to config file
 const AGORA_APP_ID = 'YOUR_AGORA_APP_ID'; // Replace with actual App ID
@@ -86,11 +86,15 @@ const AgoraLiveViewerScreen = ({ navigation, route }) => {
                 setLoading(false);
             });
 
+            // Get user ID
+            const userId = await getUserId();
+
             // Get Agora token from backend
-            const tokenResponse = await api.post('/stream/agora-token', {
-                channelName: stream.channelName,
-                role: 'audience',
-            });
+            const tokenResponse = await liveStreamAPI.getAgoraToken(
+                stream.channelName,
+                userId || 0,
+                'audience'
+            );
 
             if (tokenResponse.data.success && tokenResponse.data.token) {
                 setAgoraToken(tokenResponse.data.token);
@@ -106,9 +110,9 @@ const AgoraLiveViewerScreen = ({ navigation, route }) => {
                 );
 
                 // Track viewer join
-                await api.post('/stream/viewer-join', {
-                    streamId: stream.id,
-                });
+                if (userId && stream.id) {
+                    await liveStreamAPI.viewerJoin(stream.id, userId);
+                }
             } else {
                 throw new Error('Failed to get Agora token');
             }
@@ -128,9 +132,10 @@ const AgoraLiveViewerScreen = ({ navigation, route }) => {
                 await agoraEngine.current.destroy();
             }
             if (stream?.id) {
-                await api.post('/stream/viewer-leave', {
-                    streamId: stream.id,
-                });
+                const userId = await getUserId();
+                if (userId) {
+                    await liveStreamAPI.viewerLeave(stream.id, userId);
+                }
             }
         } catch (error) {
             console.error('Leave stream error:', error);
@@ -143,10 +148,10 @@ const AgoraLiveViewerScreen = ({ navigation, route }) => {
             setIsLiked(newLiked);
             setLikes(prev => newLiked ? prev + 1 : prev - 1);
 
-            await api.post('/stream/like', {
-                streamId: stream.id,
-                action: newLiked ? 'like' : 'unlike',
-            });
+            const userId = await getUserId();
+            if (userId && stream.id) {
+                await liveStreamAPI.likeStream(stream.id, userId);
+            }
         } catch (error) {
             console.error('Like error:', error);
             // Revert on error

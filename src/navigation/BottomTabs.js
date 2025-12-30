@@ -1,215 +1,170 @@
 // BottomTabs.js
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { View, Text, StyleSheet, Platform } from 'react-native';
-import { useTheme } from '../context/ThemeContext';
-import NewHome from '../screen/NewHome';
+import Icon from 'react-native-vector-icons/Ionicons'; // You can use other icon sets too
+import { View, Text, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ShoppingHomeScreen from '../screen/ShoppingHomeScreen';
 import WishlistScreen from '../WishlistScreen';
 import CelebritiesScreen from '../screen/CelebritiesScreen';
 import CartScreen from '../CartScreen';
+import ProfileScreen from '../ProfileScreen';
 import SettingsScreen from '../screen/SettingsScreen';
+import NewHome from '../screen/NewHome';
+
+// Dummy Screens
+const Home = () => <View style={{ flex: 1, backgroundColor: 'white' }} />;
+const Favorites = () => <View style={{ flex: 1, backgroundColor: 'white' }} />;
+const Tasks = () => <View style={{ flex: 1, backgroundColor: 'white' }} />;
+const Mail = () => <View style={{ flex: 1, backgroundColor: 'white' }} />;
+const Profile = () => <View style={{ flex: 1, backgroundColor: 'white' }} />;
 
 const Tab = createBottomTabNavigator();
 
 const TAB_META = {
-    Home: {
-        label: 'Home',
-        active: 'home',
-        inactive: 'home-outline',
-        component: NewHome
-    },
-    Wishlist: {
-        label: 'Wishlist',
-        active: 'heart',
-        inactive: 'heart-outline',
-        component: WishlistScreen
-    },
-    Celebrities: {
-        label: 'Celebs',
-        active: 'star',
-        inactive: 'star-outline',
-        component: CelebritiesScreen
-    },
-    Cart: {
-        label: 'Cart',
-        active: 'cart',
-        inactive: 'cart-outline',
-        component: CartScreen
-    },
-    Profile: {
-        label: 'Profile',
-        active: 'person',
-        inactive: 'person-outline',
-        component: SettingsScreen
-    },
+    Home: { label: 'Home', active: 'home', inactive: 'home-outline' },
+    Favorites: { label: 'Wishlist', active: 'heart', inactive: 'heart-outline' },
+    Tasks: { label: 'Celebs', active: 'sparkles', inactive: 'sparkles-outline' },
+    cart: { label: 'Cart', active: 'cart', inactive: 'cart-outline' },
+    Profile: { label: 'Profile', active: 'person', inactive: 'person-outline' },
 };
 
 const BottomTabs = () => {
-    const { theme, isDark } = useTheme();
-
-    // Dynamic styles based on theme
-    const tabBarBackground = isDark ? '#1A1B2E' : '#FFFFFF';
-    const tabBarBorder = isDark ? '#2A2B3E' : '#E8E6F6';
-    const shadowColor = isDark ? '#000000' : '#5C42C7';
-
+    const insets = useSafeAreaInsets();
+    const bottomPadding = Math.max(insets.bottom, 8);
+    
     return (
         <Tab.Navigator
             screenOptions={({ route }) => {
-                const meta = TAB_META[route.name] || {
-                    label: route.name,
-                    active: 'ellipse',
-                    inactive: 'ellipse-outline'
-                };
-
+                const isCenterTab = route.name === 'Tasks';
                 return {
                     headerShown: false,
                     tabBarShowLabel: true,
-                    tabBarLabel: meta.label,
                     tabBarHideOnKeyboard: true,
                     tabBarStyle: {
                         position: 'absolute',
-                        left: 12,
-                        right: 12,
-                        bottom: Platform.OS === 'ios' ? 20 : 16,
-                        height: Platform.OS === 'ios' ? 78 : 72,
-                        paddingBottom: Platform.OS === 'ios' ? 22 : 12,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: 75 + bottomPadding,
+                        paddingBottom: bottomPadding,
                         paddingTop: 10,
-                        borderRadius: 30,
-                        backgroundColor: tabBarBackground,
-                        borderTopWidth: 0,
-                        borderWidth: 1,
-                        borderColor: tabBarBorder,
-                        elevation: 24,
-                        shadowColor: shadowColor,
-                        shadowOpacity: isDark ? 0.4 : 0.12,
-                        shadowOffset: { width: 0, height: -6 },
-                        shadowRadius: 24,
+                        backgroundColor: '#FFFFFF',
+                        borderTopWidth: 1,
+                        borderTopColor: '#E5E7EB',
+                        elevation: 20,
+                        shadowColor: '#000',
+                        shadowOpacity: 0.15,
+                        shadowOffset: { width: 0, height: -4 },
+                        shadowRadius: 12,
+                        ...Platform.select({
+                            ios: {
+                                borderTopLeftRadius: 20,
+                                borderTopRightRadius: 20,
+                            },
+                            android: {
+                                borderTopLeftRadius: 0,
+                                borderTopRightRadius: 0,
+                            },
+                        }),
                     },
                     tabBarLabelStyle: {
-                        fontSize: 11,
-                        fontWeight: '700',
+                        fontSize: 10,
+                        fontWeight: '600',
                         marginTop: 2,
-                        letterSpacing: 0.3,
-                        marginBottom: Platform.OS === 'ios' ? 0 : -2,
+                        marginBottom: 0,
                     },
-                    tabBarActiveTintColor: theme.p1 || '#5C42C7',
-                    tabBarInactiveTintColor: isDark ? '#8B8FA3' : '#A8A8B8',
-                    tabBarIcon: ({ focused, color, size }) => {
+                    tabBarActiveTintColor: '#5C42C7',
+                    tabBarInactiveTintColor: '#9CA3AF',
+                    tabBarIcon: ({ focused }) => {
+                        const meta = TAB_META[route.name] || { label: route.name, active: 'ellipse', inactive: 'ellipse-outline' };
+                        const isCenter = isCenterTab;
+                        const iconSize = isCenter ? 28 : 24;
+                        const iconColor = focused ? '#5C42C7' : '#9CA3AF';
+                        const labelColor = focused ? '#5C42C7' : '#9CA3AF';
+                        
                         return (
-                            <View style={styles.iconContainer}>
-                                <View
-                                    style={[
-                                        styles.iconWrapper,
-                                        focused && [
-                                            styles.iconWrapperActive,
-                                            {
-                                                backgroundColor: (theme.p1 || '#5C42C7') + (isDark ? '20' : '15')
-                                            }
-                                        ]
-                                    ]}
-                                >
-                                    <Icon
-                                        name={focused ? meta.active : meta.inactive}
-                                        size={focused ? 24 : 22}
-                                        color={focused ? (theme.p1 || '#5C42C7') : color}
-                                        style={focused ? styles.iconActive : styles.iconInactive}
-                                    />
-                                    {focused && (
-                                        <View
-                                            style={[
-                                                styles.activeIndicator,
-                                                {
-                                                    backgroundColor: theme.p1 || '#5C42C7',
-                                                    shadowColor: theme.p1 || '#5C42C7',
-                                                    shadowOpacity: 0.5,
-                                                    shadowRadius: 3,
-                                                    shadowOffset: { width: 0, height: 1 },
-                                                    elevation: 3,
-                                                }
-                                            ]}
+                            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                                {isCenter ? (
+                                    <View
+                                        style={{
+                                            width: 60,
+                                            height: 60,
+                                            borderRadius: 30,
+                                            backgroundColor: focused ? '#5C42C7' : '#F3F4F6',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginBottom: -5,
+                                            marginTop: -5,
+                                            elevation: focused ? 8 : 2,
+                                            shadowColor: '#5C42C7',
+                                            shadowOpacity: focused ? 0.4 : 0.1,
+                                            shadowOffset: { width: 0, height: 4 },
+                                            shadowRadius: 8,
+                                            borderWidth: 3,
+                                            borderColor: '#FFFFFF',
+                                        }}
+                                    >
+                                        <Icon
+                                            name={focused ? meta.active : meta.inactive}
+                                            size={iconSize}
+                                            color={focused ? '#FFFFFF' : '#6B7280'}
                                         />
-                                    )}
-                                </View>
+                                    </View>
+                                ) : (
+                                    <View
+                                        style={{
+                                            paddingHorizontal: 14,
+                                            paddingVertical: 6,
+                                            borderRadius: 12,
+                                            backgroundColor: focused ? '#F3F4F6' : 'transparent',
+                                            marginBottom: 2,
+                                        }}
+                                    >
+                                        <Icon
+                                            name={focused ? meta.active : meta.inactive}
+                                            size={iconSize}
+                                            color={iconColor}
+                                        />
+                                    </View>
+                                )}
+                                {!isCenter && (
+                                    <Text
+                                        style={{
+                                            fontSize: 10,
+                                            fontWeight: focused ? '700' : '500',
+                                            color: labelColor,
+                                            marginTop: 2,
+                                        }}
+                                    >
+                                        {meta.label}
+                                    </Text>
+                                )}
+                                {isCenter && (
+                                    <Text
+                                        style={{
+                                            fontSize: 10,
+                                            fontWeight: focused ? '700' : '500',
+                                            color: labelColor,
+                                            marginTop: 2,
+                                        }}
+                                    >
+                                        {meta.label}
+                                    </Text>
+                                )}
                             </View>
                         );
                     },
                 };
             }}
         >
-            <Tab.Screen
-                name="Home"
-                component={TAB_META.Home.component}
-                options={{
-                    tabBarLabel: 'Home',
-                    tabBarStyle: {
-                        height: 0,
-                        borderWidth: 0,
-                        elevation: 0,
-                    },
-                }}
-            />
-            <Tab.Screen
-                name="Wishlist"
-                component={TAB_META.Wishlist.component}
-                options={{ tabBarLabel: 'Wishlist' }}
-            />
-            <Tab.Screen
-                name="Celebrities"
-                component={TAB_META.Celebrities.component}
-                options={{ tabBarLabel: 'Celebs' }}
-            />
-            <Tab.Screen
-                name="Cart"
-                component={TAB_META.Cart.component}
-                options={{ tabBarLabel: 'Cart' }}
-            />
-            <Tab.Screen
-                name="Profile"
-                component={TAB_META.Profile.component}
-                options={{ tabBarLabel: 'Profile' }}
-            />
+            <Tab.Screen name="Home" component={NewHome} />
+            <Tab.Screen name="Favorites" component={WishlistScreen} />
+            <Tab.Screen name="Tasks" component={CelebritiesScreen} />
+            <Tab.Screen name="cart" component={CartScreen} />
+            <Tab.Screen name="Profile" component={SettingsScreen} />
         </Tab.Navigator>
     );
 };
-
-const styles = StyleSheet.create({
-    iconContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-    },
-    iconWrapper: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 16,
-        backgroundColor: 'transparent',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-        minWidth: 48,
-        minHeight: 48,
-    },
-    iconWrapperActive: {
-        transform: [{ scale: 1.1 }],
-    },
-    iconActive: {
-        transform: [{ scale: 1.2 }],
-    },
-    iconInactive: {
-        opacity: 0.6,
-    },
-    activeIndicator: {
-        position: 'absolute',
-        bottom: -2,
-        left: '50%',
-        marginLeft: -16,
-        width: 32,
-        height: 4,
-        borderRadius: 2,
-    },
-});
 
 export default BottomTabs;

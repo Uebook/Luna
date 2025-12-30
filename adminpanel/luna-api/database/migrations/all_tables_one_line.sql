@@ -2,4 +2,3 @@ CREATE TABLE IF NOT EXISTS `product_chatbot_queries` (`id` BIGINT UNSIGNED NOT N
 
 
 
-

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, TouchableOpacity,
-  Modal, TextInput, SafeAreaView, Platform, ActivityIndicator, Alert
+  Modal, TextInput, SafeAreaView, Platform, ActivityIndicator, Alert, RefreshControl
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import i18n from '../i18n';
@@ -11,12 +11,21 @@ import StandardHeader from '../components/StandardHeader';
 import { SkeletonListScreen } from '../components/SkeletonLoader';
 import { useSkeletonLoader } from '../hooks/useSkeletonLoader';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '../services/api';
-import { API_ENDPOINTS, getImageUrl } from '../config/api';
+import { orderAPI, homeAPI, getUserId } from '../services/api';
 import { useFocusEffect } from '@react-navigation/native';
 
 const ALL = 'all';
 const STATUS_FILTERS = [ALL, 'delivered', 'processing'];
+const IMAGE_BASE_URL = 'https://proteinbros.in/assets/images/products/';
+
+// Helper function to get image URL
+const getImageUrl = (photo) => {
+  if (!photo) return null;
+  if (photo.startsWith('http://') || photo.startsWith('https://')) {
+    return photo;
+  }
+  return `${IMAGE_BASE_URL}${photo}`;
+};
 
 const HistoryScreen = ({ navigation }) => {
   const { theme } = useTheme();
@@ -40,6 +49,8 @@ const HistoryScreen = ({ navigation }) => {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
   // rating modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -59,13 +70,9 @@ const HistoryScreen = ({ navigation }) => {
   useEffect(() => {
     const loadUserId = async () => {
       try {
-        const userData = await AsyncStorage.getItem('luna_user');
-        if (userData) {
-          const parsed = JSON.parse(userData);
-          const user = parsed.user || parsed.data || parsed;
-          const id = user.id || parsed.id;
-          setUserId(id);
-        } else {
+        const id = await getUserId();
+        setUserId(id);
+        if (!id) {
           // No user data found, stop loading
           setLoadingOrders(false);
           setLoading(false);
@@ -81,7 +88,7 @@ const HistoryScreen = ({ navigation }) => {
   }, []);
 
   // Fetch orders from API
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (isRefresh = false) => {
     if (!userId) {
       setLoadingOrders(false);
       setLoading(false);
@@ -89,52 +96,32 @@ const HistoryScreen = ({ navigation }) => {
     }
 
     try {
-      setLoadingOrders(true);
-      // Don't set loading here - let it stay false if already false
-
-      const response = await api.post('/order/get-my', { user_id: userId });
-
-      // Handle paginated response structure: { status: true, data: { data: [...], current_page, ... } }
-      // Or simple response: { status: true, data: [...] }
-      let ordersData = [];
-      if (response.data.status && response.data.data) {
-        if (response.data.data.data && Array.isArray(response.data.data.data)) {
-          // Paginated response
-          ordersData = response.data.data.data;
-        } else if (Array.isArray(response.data.data)) {
-          // Simple array response
-          ordersData = response.data.data;
-        }
+      if (!isRefresh) {
+        setLoadingOrders(true);
       }
+      setError(null);
 
-      // Print raw API response
-      console.log('=== HISTORY SCREEN DATA ===');
-      console.log('Full API Response:', JSON.stringify(response.data, null, 2));
-      console.log('Orders Data (Raw):', JSON.stringify(ordersData, null, 2));
-      console.log('Number of orders:', ordersData.length);
+      const response = await orderAPI.getMyOrders(userId);
 
-      if (ordersData.length > 0) {
+      if (response.data.status && response.data.data && response.data.data.data) {
         // Transform API orders to match component format
-        const transformedOrders = ordersData.map((order, index) => {
-          console.log(`\n--- Order ${index + 1} (ID: ${order.id}) ---`);
-          console.log('Raw Order:', JSON.stringify(order, null, 2));
+        const transformedOrders = response.data.data.data.map(order => {
           // Parse cart items - handle both array format and object format
           let cartItems = [];
           try {
             let cart = typeof order.cart === 'string' ? JSON.parse(order.cart) : (order.cart || {});
 
-            // Handle array format: [{product_id, name, price, quantity, image, photo, thumbnail}]
+            // Handle array format: [{product_id, name, price, quantity}]
             if (Array.isArray(cart)) {
               cartItems = cart;
             }
-            // Handle object format: {items: {key: {name, qty, price, image, photo}}}
+            // Handle object format: {items: {key: {name, qty, price}}}
             else if (cart.items && typeof cart.items === 'object') {
               cartItems = Object.values(cart.items).map(item => ({
                 name: item.name || 'Product',
                 quantity: item.qty || item.quantity || 1,
                 price: item.price || 0,
-                product_id: item.product_id || null,
-                image: item.image || item.photo || item.thumbnail || null,
+                product_id: null, // Not available in old format
               }));
             }
           } catch (e) {
@@ -180,15 +167,20 @@ const HistoryScreen = ({ navigation }) => {
             status = 'processing';
           }
 
-          // Get product image from first item
-          const productImage = firstItem?.image || firstItem?.photo || firstItem?.thumbnail;
-          const imageSource = productImage 
-            ? getImageUrl(productImage)
-            : require('../assets/image1.png');
+          // Get product image from first item if available
+          let productImage = require('../assets/image1.png'); // Default placeholder
+          if (firstItem && (firstItem.image || firstItem.photo || firstItem.thumbnail)) {
+            const imageUrl = firstItem.image || firstItem.photo || firstItem.thumbnail;
+            if (typeof imageUrl === 'string' && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
+              productImage = { uri: imageUrl };
+            } else if (typeof imageUrl === 'string') {
+              productImage = { uri: getImageUrl(imageUrl) };
+            }
+          }
 
-          const transformedOrder = {
+          return {
             id: order.id,
-            image: imageSource,
+            image: productImage,
             title: title,
             description: description,
             orderNumber: order.order_number || `#${order.id}`,
@@ -197,49 +189,38 @@ const HistoryScreen = ({ navigation }) => {
             rawOrder: order, // Store raw order data for details screen
             cartItems: cartItems, // Store cart items for details
           };
-
-          // Print transformed order details
-          console.log('Cart Items:', JSON.stringify(cartItems, null, 2));
-          console.log('Transformed Order:', JSON.stringify({
-            id: transformedOrder.id,
-            title: transformedOrder.title,
-            description: transformedOrder.description,
-            orderNumber: transformedOrder.orderNumber,
-            status: transformedOrder.status,
-            image: typeof transformedOrder.image === 'object' && transformedOrder.image.uri 
-              ? transformedOrder.image.uri 
-              : 'local image',
-            cartItemsCount: cartItems.length
-          }, null, 2));
-
-          return transformedOrder;
         });
 
-        console.log('\n=== ALL TRANSFORMED ORDERS ===');
-        console.log('Total transformed orders:', transformedOrders.length);
-        console.log('Transformed Orders Summary:', transformedOrders.map(o => ({
-          id: o.id,
-          orderNumber: o.orderNumber,
-          title: o.title,
-          status: o.status,
-          itemsCount: o.cartItems.length
-        })));
-
         setOrders(transformedOrders);
+        setError(null);
+        // Stop loading immediately when data is received
+        setLoadingOrders(false);
+        setLoading(false);
       } else {
-        // No orders found or empty response
         setOrders([]);
+        setError('No orders found');
+        setLoadingOrders(false);
+        setLoading(false);
       }
-      // Stop loading in both cases
-      setLoadingOrders(false);
-      setLoading(false);
     } catch (error) {
       console.log('❌ Error fetching orders:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to load orders';
+      setError(errorMessage);
       setOrders([]);
       setLoadingOrders(false);
       setLoading(false);
+    } finally {
+      if (isRefresh) {
+        setRefreshing(false);
+      }
     }
-  }, [userId, setLoading]);
+  }, [userId]);
+
+  // Pull to refresh handler
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchOrders(true);
+  }, [fetchOrders]);
 
   // Load orders on mount and when screen comes into focus
   // useFocusEffect(
@@ -259,7 +240,16 @@ const HistoryScreen = ({ navigation }) => {
     if (userId) {
       fetchOrders();
     }
-  }, [userId]);
+  }, [userId, fetchOrders]);
+
+  // Refresh on focus
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) {
+        fetchOrders();
+      }
+    }, [userId, fetchOrders])
+  );
 
   const filtered = useMemo(() => {
     if (statusFilter === ALL) return orders;
@@ -340,10 +330,10 @@ const HistoryScreen = ({ navigation }) => {
     try {
       setSubmittingReview(true);
 
-      const response = await api.post('/screen/products/add-review', {
+      const response = await homeAPI.addReview({
         user_id: userId,
         product_id: productId,
-        review: comment || '',
+        comment: comment || '',
         rating: rating,
       });
       console.log('response submitting review:', response);
@@ -419,8 +409,36 @@ const HistoryScreen = ({ navigation }) => {
       </View>
 
       {/* Orders list */}
-      <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>
-        {loadingOrders ? (
+      <ScrollView
+        contentContainerStyle={styles.scrollBody}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.brand]}
+            tintColor={COLORS.brand}
+          />
+        }
+      >
+        {error && !loadingOrders && orders.length === 0 ? (
+          <View style={{ padding: 40, alignItems: 'center' }}>
+            <Ionicons name="alert-circle-outline" size={64} color={COLORS.sub} />
+            <Text style={{ marginTop: 16, fontSize: 16, color: COLORS.text, fontWeight: '700' }}>
+              Error loading orders
+            </Text>
+            <Text style={{ marginTop: 8, fontSize: 14, color: COLORS.sub, textAlign: 'center' }}>
+              {error}
+            </Text>
+            <TouchableOpacity
+              style={[styles.retryBtn, { marginTop: 16 }]}
+              onPress={() => fetchOrders()}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : loadingOrders && orders.length === 0 ? (
           <View style={{ padding: 20, alignItems: 'center' }}>
             <ActivityIndicator size="large" color={COLORS.brand} />
             <Text style={{ marginTop: 10, color: COLORS.sub }}>Loading orders...</Text>
@@ -441,16 +459,11 @@ const HistoryScreen = ({ navigation }) => {
           filtered.map((order, index) => (
             <View key={order.id} style={[styles.card, index === 0 && { marginTop: 8 }]}>
               <View style={styles.cardLeft}>
-                {typeof order.image === 'object' && order.image.uri ? (
-                  <Image 
-                    source={order.image} 
-                    style={styles.productImage}
-                    resizeMode="cover"
-                    defaultSource={require('../assets/image1.png')}
-                  />
-                ) : (
-                  <Image source={order.image} style={styles.productImage} />
-                )}
+                <Image
+                  source={order.image}
+                  style={styles.productImage}
+                  defaultSource={require('../assets/image1.png')}
+                />
               </View>
 
               <View style={styles.cardRight}>
@@ -487,9 +500,11 @@ const HistoryScreen = ({ navigation }) => {
                     <TouchableOpacity
                       style={styles.viewBtn}
                       onPress={() => navigation.navigate('OrderDetails', {
-                        order: order.rawOrder || {
+                        order: {
+                          ...(order.rawOrder || {}),
                           id: order.id,
                           order_number: order.orderNumber,
+                          number: order.orderNumber, // API expects 'number' field
                           created_at: order.dateISO,
                           status: order.status,
                         }
@@ -761,4 +776,17 @@ const createStyles = (COLORS) => StyleSheet.create({
   doneTitle: { marginTop: 18, fontSize: 18, fontWeight: '900', color: COLORS.text },
   doneSub: { marginTop: 4, color: COLORS.sub, fontWeight: '700' },
   doneStars: { flexDirection: 'row', marginTop: 10, marginBottom: 4 },
+
+  retryBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: COLORS.brand,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  retryBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
 });

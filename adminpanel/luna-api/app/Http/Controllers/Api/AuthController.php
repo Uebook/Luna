@@ -70,12 +70,6 @@ class AuthController extends Controller
     $user->currency   = $request->currency;
     $user->language   = $request->language;
     $user->email_verified = 'No';
-    
-    // Set default contact preferences (all enabled by default)
-    $user->notif_new_msg = true;
-    $user->email_promo = true;
-    $user->sms_promo = true;
-    $user->wa_promo = true;
 
     // ✅ Handle photo upload
     if ($request->hasFile('photo')) {

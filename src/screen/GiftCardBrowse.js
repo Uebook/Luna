@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     SafeAreaView,
     View,
@@ -20,11 +20,6 @@ import i18n from '../i18n';
 import { I18nManager } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import StandardHeader from '../components/StandardHeader';
-import api from '../services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSkeletonLoader } from '../hooks/useSkeletonLoader';
-import { SkeletonListScreen } from '../components/SkeletonLoader';
-import { getImageUrl } from '../config/api';
 
 const { width } = Dimensions.get('window');
 
@@ -41,11 +36,22 @@ const TABS = [
     { slug: 'congrats' },
 ];
 
+const DUMMY_CARDS = [
+    { id: 1, title: 'Golden Ribbon', category: 'birthday', image: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=1600&auto=format&fit=crop' },
+    { id: 2, title: 'Marble Luxe', category: 'birthday', image: 'https://images.unsplash.com/photo-1543512214-318c7553f230?q=80&w=1600&auto=format&fit=crop' },
+    { id: 3, title: 'Rose Emblem', category: 'anniversary', image: 'https://images.unsplash.com/photo-1515734674582-29010bb37906?q=80&w=1600&auto=format&fit=crop' },
+    { id: 4, title: 'Starlit Night', category: 'holiday', image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1600&auto=format&fit=crop' },
+    { id: 5, title: 'Season’s Greetings', category: 'holiday', image: 'https://images.unsplash.com/photo-1512203492609-8f2f9e0f0b3a?q=80&w=1600&auto=format&fit=crop' },
+    { id: 6, title: 'Thank You Floral', category: 'thankyou', image: 'https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?q=80&w=1600&auto=format&fit=crop' },
+    { id: 7, title: 'Confetti Slate', category: 'congratulations', image: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?q=80&w=1600&auto=format&fit=crop' },
+    { id: 8, title: 'Elegant Frame', category: 'anniversary', image: 'https://images.unsplash.com/photo-1496167117681-944f702be1f4?q=80&w=1600&auto=format&fit=crop' },
+];
+
 export default function GiftCardTemplatePicker({ navigation, onBack, onNext }) {
     const { t } = useTranslation('giftcard');
     const isRTL = I18nManager.isRTL || i18n?.dir?.() === 'rtl';
     const { theme, isDark } = useTheme();
-    const COLORS = useMemo(() => ({
+    const COLORS = {
         page: theme.giftCardPage || theme.page,
         header: theme.giftCardHeader || theme.header,
         panel: theme.giftCardPanel || theme.panel,
@@ -57,11 +63,9 @@ export default function GiftCardTemplatePicker({ navigation, onBack, onNext }) {
         disabled: theme.disabled,
         danger: theme.danger,
         isDark,
-    }), [theme, isDark]);
+    };
 
-    const [loading, setLoading] = useSkeletonLoader(true, 600);
-    const [giftCards, setGiftCards] = useState([]);
-    const [selectedTab, setSelectedTab] = useState('all');
+    const [selectedTab, setSelectedTab] = useState('birthday');
     const [selectedCardId, setSelectedCardId] = useState(null);
 
     const [showModal, setShowModal] = useState(false);
@@ -71,80 +75,30 @@ export default function GiftCardTemplatePicker({ navigation, onBack, onNext }) {
     const [amount, setAmount] = useState('');
     const [errors, setErrors] = useState({});
 
-    // Fetch gift cards from API
-    const fetchGiftCards = useCallback(async () => {
-        try {
-            setLoading(true);
-            const response = await api.post('/gift-card/list', {});
-            
-            console.log('Gift Cards API Response:', JSON.stringify(response.data, null, 2));
-            
-            if (response.data.status && response.data.gift_cards) {
-                // Map API data to match expected format
-                const formattedCards = response.data.gift_cards.map((card) => ({
-                    id: card.id,
-                    title: card.title || card.name || 'Gift Card',
-                    description: card.description || '',
-                    image: card.image || card.photo || null,
-                    price: card.price || 0,
-                    value: card.value || card.price || 0,
-                    discount: card.discount || 0,
-                    validity_days: card.validity_days || 365,
-                    // Map to category for filtering (you can adjust this based on your data)
-                    category: card.category || 'all', // Default category
-                }));
-                console.log('Formatted Gift Cards:', formattedCards.length);
-                setGiftCards(formattedCards);
-            } else {
-                console.log('No gift cards in response');
-                setGiftCards([]);
-            }
-        } catch (error) {
-            console.error('Error fetching gift cards:', error);
-            console.error('Error response:', error.response?.data);
-            setGiftCards([]);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchGiftCards();
-    }, [fetchGiftCards]);
-
     const filteredCards = useMemo(() => {
-        if (selectedTab === 'all') return giftCards;
-        return giftCards.filter((c) => c.category === selectedTab);
-    }, [selectedTab, giftCards]);
+        if (selectedTab === 'all') return DUMMY_CARDS;
+        return DUMMY_CARDS.filter((c) => c.category === selectedTab);
+    }, [selectedTab]);
 
     const selectedCard = useMemo(
-        () => giftCards.find((c) => c.id === selectedCardId) || null,
-        [selectedCardId, giftCards]
+        () => DUMMY_CARDS.find((c) => c.id === selectedCardId) || null,
+        [selectedCardId]
     );
 
     const styles = useMemo(() => createStyles(COLORS), [COLORS]);
 
-    const handleBack = useCallback(() => (onBack ? onBack() : navigation?.goBack?.()), [onBack, navigation]);
+    const handleBack = () => (onBack ? onBack() : navigation?.goBack?.());
 
-    const isValidEmailPhone = useCallback((text) => {
+    const openModal = () => { if (selectedCard) setShowModal(true); };
+    const closeModal = () => setShowModal(false);
+
+    const isValidEmailPhone = (text) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const phoneRegex = /^[0-9+\-\s]{7,}$/;
         return emailRegex.test(text) || phoneRegex.test(text);
-    }, []);
+    };
 
-    const openModal = useCallback(() => { 
-        if (selectedCard) {
-            // Pre-fill amount with gift card value if available
-            if (selectedCard.value && !amount) {
-                setAmount(selectedCard.value.toString());
-            }
-            setShowModal(true);
-        }
-    }, [selectedCard, amount]);
-
-    const closeModal = useCallback(() => setShowModal(false), []);
-
-    const validate = useCallback(() => {
+    const validate = () => {
         const e = {};
         if (!name.trim()) e.name = t('errors.required', { defaultValue: 'Required' });
         if (!contact.trim()) e.contact = t('errors.required', { defaultValue: 'Required' });
@@ -155,92 +109,50 @@ export default function GiftCardTemplatePicker({ navigation, onBack, onNext }) {
             e.amount = t('errors.validAmount', { defaultValue: 'Enter valid amount' });
         setErrors(e);
         return Object.keys(e).length === 0;
-    }, [name, contact, amount, isValidEmailPhone, t]);
+    };
 
-    const handleProceed = useCallback(() => {
+    const handleProceed = () => {
         if (!validate()) return;
-        // Use gift card value if amount not provided
-        const finalAmount = amount ? Number(amount) : (selectedCard?.value || selectedCard?.price || 0);
-        const payload = { 
-            selectedCard, 
-            form: { 
-                name, 
-                contact, 
-                message, 
-                amount: finalAmount 
-            } 
-        };
+        const payload = { selectedCard, form: { name, contact, message, amount: Number(amount) } };
         if (onNext) onNext(payload);
         else navigation?.navigate?.('GiftCardReviewPay', payload);
-    }, [validate, amount, selectedCard, name, contact, message, onNext, navigation]);
+    };
 
     const renderCard = ({ item }) => {
         const selected = item.id === selectedCardId;
-        const imageUri = item.image ? getImageUrl(item.image) : null;
         return (
             <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => setSelectedCardId(item.id)}
                 style={[styles.tileWrap, selected && styles.tileWrapSelected]}
             >
-                {imageUri ? (
-                    <ImageBackground 
-                        source={{ uri: imageUri }} 
-                        style={styles.tile} 
-                        imageStyle={styles.tileImg}
-                    >
-                        <View style={styles.tileOverlay} />
-                        <Text style={[styles.tileTitle, isRTL && { textAlign: 'right' }]} numberOfLines={1}>
-                            {item.title}
-                        </Text>
-                        {item.value && (
-                            <Text style={[styles.tileValue, isRTL && { textAlign: 'right' }]} numberOfLines={1}>
-                                {item.value} BHD
-                            </Text>
-                        )}
-                        {selected && <View style={styles.tileSelectedGlow} />}
-                    </ImageBackground>
-                ) : (
-                    <View style={[styles.tile, { backgroundColor: COLORS.panel, alignItems: 'center', justifyContent: 'center' }]}>
-                        <Icon name="gift" size={40} color={COLORS.accent} />
-                        <View style={styles.tileOverlay} />
-                        <Text style={[styles.tileTitle, isRTL && { textAlign: 'right' }]} numberOfLines={1}>
-                            {item.title}
-                        </Text>
-                        {item.value && (
-                            <Text style={[styles.tileValue, isRTL && { textAlign: 'right' }]} numberOfLines={1}>
-                                {item.value} BHD
-                            </Text>
-                        )}
-                        {selected && <View style={styles.tileSelectedGlow} />}
-                    </View>
-                )}
+                <ImageBackground source={{ uri: item.image }} style={styles.tile} imageStyle={styles.tileImg}>
+                    <View style={styles.tileOverlay} />
+                    <Text style={[styles.tileTitle, isRTL && { textAlign: 'right' }]} numberOfLines={1}>
+                        {item.title}
+                    </Text>
+                    {selected && <View style={styles.tileSelectedGlow} />}
+                </ImageBackground>
             </TouchableOpacity>
         );
     };
 
-    if (loading) {
-        return (
-            <SafeAreaView style={[styles.safe, { writingDirection: isRTL ? 'rtl' : 'ltr' }]}>
-                <StandardHeader
-                    title={t('title', { defaultValue: 'Luna Gift Cards' })}
-                    navigation={navigation}
-                    showGradient={true}
-                />
-                <SkeletonListScreen />
-            </SafeAreaView>
-        );
-    }
-
     return (
         <SafeAreaView style={[styles.safe, { writingDirection: isRTL ? 'rtl' : 'ltr' }]}>
 
-            {/* HEADER */}
-            <StandardHeader
-                title={t('title', { defaultValue: 'Luna Gift Cards' })}
-                navigation={navigation}
-                showGradient={true}
-            />
+            {/* HEADER — centered title, absolute leading back button */}
+            <View style={styles.header}>
+                <Text style={styles.headerTitle} numberOfLines={1}>
+                    {t('title', { defaultValue: 'Luna Gift Cards' })}
+                </Text>
+                <TouchableOpacity
+                    onPress={handleBack}
+                    style={[styles.backAbs, isRTL ? { right: 14 } : { left: 14 }]}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                    <Icon name={isRTL ? 'arrow-right' : 'arrow-left'} size={22} color={COLORS.text} />
+                </TouchableOpacity>
+            </View>
 
             {/* TABS */}
             <ScrollView
@@ -450,8 +362,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     tile: { flex: 1, justifyContent: 'flex-end' },
     tileImg: { borderRadius: RADIUS },
     tileOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' },
-    tileTitle: { color: COLORS.text, fontWeight: '800', fontSize: 14, paddingHorizontal: 10, paddingTop: 10 },
-    tileValue: { color: COLORS.accent, fontWeight: '700', fontSize: 12, paddingHorizontal: 10, paddingBottom: 10 },
+    tileTitle: { color: COLORS.text, fontWeight: '800', fontSize: 14, paddingHorizontal: 10, paddingVertical: 10 },
     tileSelectedGlow: { ...StyleSheet.absoluteFillObject, borderRadius: RADIUS, borderWidth: 2, borderColor: COLORS.accent, opacity: 0.35 },
 
     emptyWrap: { paddingVertical: 40, alignItems: 'center' },

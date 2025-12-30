@@ -1,21 +1,17 @@
 // src/screens/ToReceiveOrdersScreen.js
-import React, { useMemo, useState, useEffect, useCallback, memo } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Modal, SafeAreaView,
   Platform, Dimensions, TextInput, PermissionsAndroid, Linking, I18nManager, ScrollView,
-  ActivityIndicator, Alert
+  ActivityIndicator, RefreshControl, Alert
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ImagePicker from 'react-native-image-crop-picker';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import { useTheme } from '../context/ThemeContext';
-import StandardHeader from '../components/StandardHeader';
-import { SkeletonListScreen } from '../components/SkeletonLoader';
-import { useSkeletonLoader } from '../hooks/useSkeletonLoader';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '../services/api';
-import { getImageUrl } from '../config/api';
+import { orderAPI, homeAPI, getUserId } from '../services/api';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width: W } = Dimensions.get('window');
 
@@ -31,38 +27,28 @@ const courierTrackUrl = (carrier, id) => {
   return `https://google.com/search?q=${encodeURIComponent(`${carrier} ${id} tracking`)}`;
 };
 
+const IMAGE_BASE_URL = 'https://proteinbros.in/assets/images/products/';
+
+// Helper function to get image URL
+const getImageUrl = (photo) => {
+  if (!photo) return null;
+  if (photo.startsWith('http://') || photo.startsWith('https://')) {
+    return photo;
+  }
+  return `${IMAGE_BASE_URL}${photo}`;
+};
 
 const ImageCollage = ({ uris, COLORS }) => {
-  // getImageUrl returns a string URL, so uris should be strings
-  const validUris = (uris || []).filter(Boolean);
-  const n = Math.min(validUris.length, 4);
-  const S = 84, G = 4, HALF = (S - G) / 2;
+  const n = Math.min(uris.length, 4);
+  const S = 76, G = 4, HALF = (S - G) / 2;
 
-  if (n <= 0) {
-    return (
-      <View style={{ 
-        width: S, 
-        height: S, 
-        borderRadius: 12, 
-        backgroundColor: COLORS?.chip || '#E8E6F6',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <Ionicons name="cube-outline" size={32} color={COLORS?.sub || '#9CA3AF'} />
-      </View>
-    );
-  }
-  if (n === 1) return <Image source={{ uri: validUris[0] }} style={{ width: S, height: S, borderRadius: 12 }} resizeMode="cover" />;
+  if (n <= 0) return <View style={{ width: S, height: S, borderRadius: 12, backgroundColor: COLORS?.chip || '#E8E6F6' }} />;
+  if (n === 1) return <Image source={{ uri: uris[0] }} style={{ width: S, height: S, borderRadius: 12 }} />;
   if (n === 2) {
     return (
       <View style={{ width: S, height: S, flexDirection: 'row' }}>
         {[0, 1].map(i => (
-          <Image 
-            key={i} 
-            source={{ uri: validUris[i] }} 
-            style={{ width: HALF, height: S, borderRadius: 12, marginRight: i === 0 ? G : 0 }} 
-            resizeMode="cover"
-          />
+          <Image key={i} source={{ uri: uris[i] }} style={{ width: HALF, height: S, borderRadius: 12, marginRight: i === 0 ? G : 0 }} />
         ))}
       </View>
     );
@@ -71,10 +57,10 @@ const ImageCollage = ({ uris, COLORS }) => {
     return (
       <View style={{ width: S, height: S }}>
         <View style={{ flexDirection: 'row', marginBottom: G }}>
-          <Image source={{ uri: validUris[0] }} style={{ width: HALF, height: HALF, borderRadius: 12, marginRight: G }} resizeMode="cover" />
-          <Image source={{ uri: validUris[1] }} style={{ width: HALF, height: HALF, borderRadius: 12 }} resizeMode="cover" />
+          <Image source={{ uri: uris[0] }} style={{ width: HALF, height: HALF, borderRadius: 12, marginRight: G }} />
+          <Image source={{ uri: uris[1] }} style={{ width: HALF, height: HALF, borderRadius: 12 }} />
         </View>
-        <Image source={{ uri: validUris[2] }} style={{ width: S, height: HALF, borderRadius: 12 }} resizeMode="cover" />
+        <Image source={{ uri: uris[2] }} style={{ width: S, height: HALF, borderRadius: 12 }} />
       </View>
     );
   }
@@ -83,11 +69,32 @@ const ImageCollage = ({ uris, COLORS }) => {
       {[0, 1, 2, 3].map(i => (
         <Image
           key={i}
-          source={{ uri: validUris[i] }}
+          source={{ uri: uris[i] }}
           style={{ width: HALF, height: HALF, borderRadius: 12, marginRight: i % 2 === 0 ? G : 0, marginBottom: i < 2 ? G : 0 }}
-          resizeMode="cover"
         />
       ))}
+    </View>
+  );
+};
+
+const Badge = ({ children, styles }) => (
+  <View style={styles.badge}><Text style={styles.badgeTxt}>{children}</Text></View>
+);
+
+// ⬇️ moved inside file so we can use t()
+const StatusPill = ({ status, t, styles, COLORS }) => {
+  const key = String(status || '').toLowerCase(); // 'packed' | 'shipped' | 'delivered'
+  const delivered = key === 'delivered';
+  return (
+    <View style={styles.statusRow}>
+      <Text style={[styles.status, delivered && { color: COLORS.text }]}>
+        {t(`status:${key}`, status)}
+      </Text>
+      {delivered && (
+        <View style={styles.checkDot}>
+          <Ionicons name="checkmark" size={12} color="#fff" />
+        </View>
+      )}
     </View>
   );
 };
@@ -111,27 +118,12 @@ export default function ToReceiveOrdersScreen({ navigation }) {
   const { t } = useTranslation(['toReceive', 'status']);
   const isRTL = i18n.dir() === 'rtl';
 
-  // Memoized components to prevent re-renders - defined as separate memoized components
-  const BadgeComponent = memo(({ children }) => (
-    <View style={styles.badge}><Text style={styles.badgeTxt}>{children}</Text></View>
-  ));
-
-  const StatusPillComponent = memo(({ status }) => {
-    const key = String(status || '').toLowerCase();
-    return (
-      <View style={styles.statusRow}>
-        <Text style={[styles.status, { color: COLORS.brandBtn }]}>
-          {t(`status:${key}`, status)}
-        </Text>
-      </View>
-    );
-  });
-
   // Orders state
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [userId, setUserId] = useState(null);
-  const [loading, setLoading] = useSkeletonLoader(true, 600);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
   const [selectOpen, setSelectOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -140,147 +132,162 @@ export default function ToReceiveOrdersScreen({ navigation }) {
   const [selectedItemIndex, setSelectedItemIndex] = useState(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
-  const [reviewPhotos, setReviewPhotos] = useState([]);
+  const [reviewPhotos, setReviewPhotos] = useState([]); // {uri}
   const [submittingReview, setSubmittingReview] = useState(false);
 
   // Load user ID
   useEffect(() => {
     const loadUserId = async () => {
       try {
-        const userData = await AsyncStorage.getItem('luna_user');
-        if (userData) {
-          const parsed = JSON.parse(userData);
-          const user = parsed.user || parsed.data || parsed;
-          const id = user.id || parsed.id;
-          setUserId(id);
-        } else {
-          setLoadingOrders(false);
-          setLoading(false);
-        }
+        const id = await getUserId();
+        setUserId(id);
       } catch (error) {
         console.log('Error loading user ID:', error);
-        setLoadingOrders(false);
-        setLoading(false);
       }
     };
     loadUserId();
   }, []);
 
-  // Fetch orders from API - filter out delivered/completed
-  const fetchOrders = useCallback(async () => {
+  // Transform API order to component format
+  const transformOrder = useCallback((order) => {
+    // Parse cart items
+    let cartItems = [];
+    try {
+      let cart = typeof order.cart === 'string' ? JSON.parse(order.cart) : (order.cart || {});
+
+      // Handle array format
+      if (Array.isArray(cart)) {
+        cartItems = cart;
+      }
+      // Handle object format
+      else if (cart.items && typeof cart.items === 'object') {
+        cartItems = Object.values(cart.items);
+      }
+    } catch (e) {
+      console.log('Error parsing cart:', e);
+      cartItems = [];
+    }
+
+    // Get product images
+    const items = cartItems.map((item, idx) => {
+      const productData = item.item || item;
+      const imageUrl = productData.photo || productData.image || productData.thumbnail;
+      return {
+        thumb: imageUrl ? getImageUrl(imageUrl) : null,
+        title: productData.name || 'Product',
+        product_id: productData.id || productData.product_id,
+      };
+    });
+
+    // Map status
+    const statusMap = {
+      'pending': 'Packed',
+      'processing': 'Packed',
+      'confirmed': 'Packed',
+      'packed': 'Packed',
+      'shipped': 'Shipped',
+      'out_for_delivery': 'Shipped',
+      'delivered': 'Delivered',
+      'completed': 'Delivered',
+    };
+    const status = statusMap[order.status?.toLowerCase()] || 'Packed';
+
+    // Calculate ETA (if available)
+    const placedDate = order.created_at ? new Date(order.created_at) : new Date();
+    const now = new Date();
+    const diffMins = Math.floor((now - placedDate) / (1000 * 60));
+
+    return {
+      id: order.id,
+      orderNo: order.order_number || `#${order.id}`,
+      items: items,
+      status: status,
+      placedAtISO: order.created_at || new Date().toISOString(),
+      deliveredAtISO: order.status === 'delivered' || order.status === 'completed' ? (order.updated_at || order.created_at) : null,
+      etaMins: status === 'Shipped' ? 120 : status === 'Packed' ? 180 : null,
+      carrier: order.shipping?.title || order.shipping_title || 'Standard',
+      trackingId: order.transaction_id || order.txnid || order.tracking_code || null,
+      rawOrder: order, // Store raw order for details
+    };
+  }, []);
+
+  // Fetch orders from API
+  const fetchOrders = useCallback(async (isRefresh = false) => {
     if (!userId) {
       setLoadingOrders(false);
-      setLoading(false);
       return;
     }
 
     try {
-      setLoadingOrders(true);
-      const response = await api.post('/order/get-my', { user_id: userId });
-
-      let ordersData = [];
-      if (response.data.status && response.data.data) {
-        if (response.data.data.data && Array.isArray(response.data.data.data)) {
-          ordersData = response.data.data.data;
-        } else if (Array.isArray(response.data.data)) {
-          ordersData = response.data.data;
-        }
+      if (!isRefresh) {
+        setLoadingOrders(true);
       }
+      setError(null);
 
-      if (ordersData.length > 0) {
-        const transformedOrders = ordersData
-          .filter(order => {
-            // Filter out delivered and completed orders
-            const status = String(order.status || '').toLowerCase();
-            return status !== 'delivered' && status !== 'completed';
-          })
-          .map(order => {
-            let cartItems = [];
-            try {
-              let cart = typeof order.cart === 'string' ? JSON.parse(order.cart) : (order.cart || {});
+      const response = await orderAPI.getMyOrders(userId);
 
-              if (Array.isArray(cart)) {
-                cartItems = cart;
-              } else if (cart.items && typeof cart.items === 'object') {
-                cartItems = Object.values(cart.items).map(item => ({
-                  name: item.name || 'Product',
-                  quantity: item.qty || item.quantity || 1,
-                  price: item.price || 0,
-                  product_id: item.product_id || null,
-                  image: item.image || null,
-                }));
-              }
-            } catch (e) {
-              console.log('Error parsing cart:', e);
-              cartItems = [];
-            }
+      if (response.data?.status && response.data?.data?.data) {
+        // Filter orders that are not delivered/completed (to receive orders)
+        const toReceiveOrders = response.data.data.data.filter(order => {
+          const status = order.status?.toLowerCase();
+          return status !== 'delivered' && status !== 'completed' && status !== 'cancelled';
+        });
 
-            if (cartItems.length === 0) {
-              return null;
-            }
-
-            // Map status
-            let status = 'processing';
-            if (order.status === 'pending' || order.status === 'processing' || order.status === 'confirmed') {
-              status = 'processing';
-            } else if (order.status === 'shipped' || order.status === 'packed') {
-              status = 'shipped';
-            }
-
-            return {
-              id: order.id,
-              orderNo: order.order_number || `#${order.id}`,
-              items: cartItems.map(item => {
-                const imagePath = item.image || item.photo || item.thumbnail;
-                return {
-                  thumb: imagePath ? getImageUrl(imagePath) : null,
-                  title: item.name || 'Product',
-                  product_id: item.product_id,
-                };
-              }),
-              status: status,
-              placedAtISO: order.created_at || order.date || new Date().toISOString(),
-              carrier: order.carrier || null,
-              trackingId: order.tracking_id || order.tracking_number || null,
-              rawOrder: order,
-              cartItems: cartItems,
-            };
-          })
-          .filter(order => order !== null);
-
+        // Transform orders
+        const transformedOrders = toReceiveOrders.map(transformOrder);
         setOrders(transformedOrders);
+        setError(null);
       } else {
         setOrders([]);
+        setError('No orders found');
       }
-      setLoadingOrders(false);
-      setLoading(false);
     } catch (error) {
-      console.log('Error fetching orders:', error);
+      console.log('❌ Error fetching orders:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to load orders';
+      setError(errorMessage);
       setOrders([]);
+    } finally {
       setLoadingOrders(false);
-      setLoading(false);
+      if (isRefresh) {
+        setRefreshing(false);
+      }
     }
-  }, [userId]);
+  }, [userId, transformOrder]);
 
+  // Fetch orders when userId is available
   useEffect(() => {
     if (userId) {
       fetchOrders();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, fetchOrders]);
 
-  const openSelectModal = useCallback((order) => {
+  // Refresh on focus
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) {
+        fetchOrders();
+      }
+    }, [userId, fetchOrders])
+  );
+
+  // Pull to refresh handler
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchOrders(true);
+  }, [fetchOrders]);
+
+  const openSelectModal = (order) => {
     setSelectedOrder(order);
     setSelectOpen(true);
-  }, []);
+  };
 
-  const openReviewModal = useCallback((idx) => {
+  const openReviewModal = (idx) => {
     setSelectedItemIndex(idx);
     setRating(0);
     setComment('');
     setReviewPhotos([]);
     setReviewOpen(true);
-  }, []);
+  };
 
   const submitReview = async () => {
     if (!selectedOrder || selectedItemIndex == null) {
@@ -307,23 +314,23 @@ export default function ToReceiveOrdersScreen({ navigation }) {
 
     try {
       setSubmittingReview(true);
-      const response = await api.post('/screen/products/add-review', {
+
+      const response = await homeAPI.addReview({
         user_id: userId,
         product_id: productId,
-        review: comment || '',
+        comment: comment || '',
         rating: rating,
       });
 
-      if (response.data.status) {
+      if (response.data?.status) {
         Alert.alert('Success', 'Review submitted successfully!');
         setReviewOpen(false);
         setSelectOpen(false);
         setRating(0);
         setComment('');
         setReviewPhotos([]);
-        setSelectedItemIndex(null);
       } else {
-        Alert.alert('Error', response.data.message || 'Failed to submit review');
+        Alert.alert('Error', response.data?.message || 'Failed to submit review');
       }
     } catch (error) {
       console.log('Error submitting review:', error);
@@ -338,21 +345,21 @@ export default function ToReceiveOrdersScreen({ navigation }) {
     [selectedOrder]
   );
 
-  const formatDateTime = useCallback((iso) => {
+  const formatDateTime = (iso) => {
     try {
       const d = new Date(iso);
       return new Intl.DateTimeFormat(i18n.language || 'en', {
         day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
       }).format(d);
     } catch { return iso; }
-  }, []);
+  };
 
-  const openTracking = useCallback((order) => {
+  const openTracking = (order) => {
     const url = courierTrackUrl(order?.carrier, order?.trackingId);
     if (url) Linking.openURL(url).catch(() => { });
-  }, []);
+  };
 
-  const requestGalleryPermission = useCallback(async () => {
+  const requestGalleryPermission = async () => {
     if (Platform.OS !== 'android') return true;
     try {
       const res = await PermissionsAndroid.request(
@@ -362,9 +369,9 @@ export default function ToReceiveOrdersScreen({ navigation }) {
       );
       return res === PermissionsAndroid.RESULTS.GRANTED;
     } catch { return false; }
-  }, []);
+  };
 
-  const pickPhotos = useCallback(async () => {
+  const pickPhotos = async () => {
     const ok = await requestGalleryPermission();
     if (!ok) return;
     try {
@@ -382,9 +389,9 @@ export default function ToReceiveOrdersScreen({ navigation }) {
         ...selected.map(x => ({ uri: x.path || x.sourceURL || x.uri }))
       ].slice(0, MAX_REVIEW_PHOTOS));
     } catch { }
-  }, [reviewPhotos.length, requestGalleryPermission]);
+  };
 
-  const takePhoto = useCallback(async () => {
+  const takePhoto = async () => {
     try {
       const img = await ImagePicker.openCamera({
         mediaType: 'photo',
@@ -394,97 +401,120 @@ export default function ToReceiveOrdersScreen({ navigation }) {
         setReviewPhotos(prev => [...prev, { uri: img.path }].slice(0, MAX_REVIEW_PHOTOS));
       }
     } catch { }
-  }, []);
+  };
 
-  const removePhoto = useCallback((idx) => {
+  const removePhoto = (idx) => {
     setReviewPhotos(prev => prev.filter((_, i) => i !== idx));
-  }, []);
-
-  if (loading && orders.length === 0 && loadingOrders) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <StandardHeader
-          title={t('toReceive:title')}
-          navigation={navigation}
-          showGradient={true}
-        />
-        <SkeletonListScreen />
-      </SafeAreaView>
-    );
-  }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
       {/* Header */}
-      <StandardHeader
-        title={t('toReceive:title')}
-        navigation={navigation}
-        showGradient={true}
-      />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation?.goBack?.()} style={styles.backBtn} activeOpacity={0.8}>
+          <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color={COLORS.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t('toReceive:title')}</Text>
+        <View style={{ width: 40, height: 40 }} />
+      </View>
 
       {/* Orders */}
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {loadingOrders ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.brand} />
-            <Text style={styles.loadingText}>Loading orders...</Text>
-          </View>
-        ) : orders.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="cube-outline" size={64} color={COLORS.sub} />
-            <Text style={styles.emptyTitle}>No orders to receive</Text>
-            <Text style={styles.emptySub}>
-              Orders that are pending, processing, or shipped will appear here.
-            </Text>
-          </View>
-        ) : (
-          orders.map((item, index) => {
-            const images = item.items.map(it => it.thumb || null).filter(Boolean);
-            const statusLower = String(item.status || '').toLowerCase();
-            const infoLine = t('toReceive:placed', { date: formatDateTime(item.placedAtISO) });
+      {loadingOrders && orders.length === 0 ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+          <ActivityIndicator size="large" color={COLORS.brand} />
+          <Text style={{ marginTop: 12, color: COLORS.sub }}>Loading orders...</Text>
+        </View>
+      ) : error && orders.length === 0 ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+          <Ionicons name="alert-circle-outline" size={64} color={COLORS.sub} />
+          <Text style={{ marginTop: 16, fontSize: 16, color: COLORS.text, fontWeight: '700' }}>
+            Error loading orders
+          </Text>
+          <Text style={{ marginTop: 8, fontSize: 14, color: COLORS.sub, textAlign: 'center' }}>
+            {error}
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryBtn, { marginTop: 16 }]}
+            onPress={() => fetchOrders()}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : orders.length === 0 ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+          <Ionicons name="cube-outline" size={64} color={COLORS.sub} />
+          <Text style={{ marginTop: 16, fontSize: 16, color: COLORS.text, fontWeight: '700' }}>
+            No orders to receive
+          </Text>
+          <Text style={{ marginTop: 8, fontSize: 14, color: COLORS.sub, textAlign: 'center' }}>
+            All your orders have been delivered or you haven't placed any orders yet.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={orders}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={{ paddingBottom: 16, paddingHorizontal: 16 }}
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[COLORS.brand]}
+              tintColor={COLORS.brand}
+            />
+          }
+          renderItem={({ item }) => {
+          const images = item.items.map(it => it.thumb || '').filter(Boolean);
+          const delivered = String(item.status).toLowerCase() === 'delivered';
+          const infoLine = delivered
+            ? t('toReceive:deliveredAt', { date: formatDateTime(item.deliveredAtISO) })
+            : item.etaMins && item.etaMins < 180
+              ? t('toReceive:etaMinutes', { mins: item.etaMins })
+              : t('toReceive:placed', { date: formatDateTime(item.placedAtISO) });
 
-            return (
-              <View key={item.id} style={[styles.card, index === 0 && { marginTop: 8 }]}>
-                <ImageCollage uris={images} COLORS={COLORS} />
-                <View style={styles.info}>
-                  <Text style={styles.orderLine}>
-                    {t('toReceive:order')} <Text style={styles.orderBold}>{item.orderNo}</Text>
-                  </Text>
-                  <Text style={styles.sub}>{infoLine}</Text>
-                  <StatusPillComponent status={item.status} />
-                </View>
-                <View style={styles.right}>
-                  <BadgeComponent>
-                    {t('toReceive:itemsCount', { count: item.items.length })}
-                  </BadgeComponent>
-
-                  {item.trackingId ? (
-                    <TouchableOpacity 
-                      style={[styles.btn, styles.btnSolid]} 
-                      onPress={() => openTracking(item)}
-                      activeOpacity={0.9}
-                    >
-                      <Ionicons name="location-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
-                      <Text style={[styles.btnTxt, { color: '#fff' }]}>{t('toReceive:track')}</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity 
-                      style={[styles.btn, styles.btnOutline]} 
-                      onPress={() => navigation.navigate('OrderDetails', { order: item.rawOrder || item })}
-                      activeOpacity={0.9}
-                    >
-                      <Text style={[styles.btnTxt, { color: COLORS.brandBtn }]}>{t('toReceive:view')}</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+          return (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('OrderDetails', { 
+                order: {
+                  ...(item.rawOrder || {}),
+                  id: item.id,
+                  order_number: item.orderNo,
+                  number: item.orderNo,
+                  created_at: item.placedAtISO,
+                  status: item.status,
+                }
+              })}
+              style={styles.card}
+            >
+              <ImageCollage uris={images} COLORS={COLORS} />
+              <View style={styles.info}>
+                <Text style={styles.orderLine}>
+                  {t('toReceive:order')} <Text style={styles.orderBold}>{item.orderNo}</Text>
+                </Text>
+                <Text style={styles.sub}>{infoLine}</Text>
+                <StatusPill status={item.status} t={t} styles={styles} COLORS={COLORS} />
               </View>
-            );
-          })
-        )}
-      </ScrollView>
+              <View style={styles.right}>
+                <Badge styles={styles}>{t('toReceive:itemsCount', { count: item.items.length })}</Badge>
+
+                {delivered ? (
+                  <TouchableOpacity style={[styles.btn, styles.btnOutline]} onPress={() => openSelectModal(item)}>
+                    <Text style={[styles.btnTxt, { color: COLORS.brandBtn }]}>{t('toReceive:review')}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={[styles.btn, styles.btnSolid]} onPress={() => openTracking(item)}>
+                    <Text style={[styles.btnTxt, { color: '#fff' }]}>{t('toReceive:track')}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        }}
+        />
+      )}
 
       {/* Select item */}
       <Modal transparent animationType="slide" visible={selectOpen} onRequestClose={() => setSelectOpen(false)}>
@@ -612,54 +642,21 @@ export default function ToReceiveOrdersScreen({ navigation }) {
 const createStyles = (COLORS) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.bg },
 
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 24 },
-  loadingContainer: {
-    padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+  header: {
+    paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10,
+    flexDirection: 'row', alignItems: 'center',
+    borderBottomWidth: 1, borderBottomColor: COLORS.line, justifyContent: 'space-between',
   },
-  loadingText: {
-    marginTop: 12,
-    color: COLORS.sub,
-    fontSize: 14,
+  backBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.chip,
   },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyTitle: {
-    marginTop: 16,
-    fontSize: 18,
-    color: COLORS.text,
-    fontWeight: '700',
-  },
-  emptySub: {
-    marginTop: 8,
-    fontSize: 14,
-    color: COLORS.sub,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800', color: COLORS.text },
 
   card: {
-    backgroundColor: COLORS.card, 
-    borderRadius: 16, 
-    borderWidth: 1, 
-    borderColor: COLORS.line,
-    padding: 12, 
-    flexDirection: 'row', 
-    alignItems: 'center',
-    marginTop: 14,
-    ...Platform.select({ 
-      ios: { 
-        shadowColor: '#000', 
-        shadowOpacity: 0.06, 
-        shadowRadius: 10, 
-        shadowOffset: { width: 0, height: 6 } 
-      }, 
-      android: { elevation: 2 } 
-    }),
+    backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.line,
+    padding: 10, flexDirection: 'row', alignItems: 'center',
+    ...Platform.select({ ios: { shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } }, android: { elevation: 2 } }),
   },
 
   info: { flex: 1, marginLeft: 10 },
@@ -731,5 +728,18 @@ const createStyles = (COLORS) => StyleSheet.create({
   photoRemove: {
     position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 11,
     backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center'
+  },
+
+  retryBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: COLORS.brand,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  retryBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
   },
 });

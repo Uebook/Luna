@@ -16,7 +16,7 @@ import { RtcEngine, ChannelProfileType, ClientRoleType } from 'react-native-agor
 import Icon from 'react-native-vector-icons/Feather';
 import StandardHeader from '../components/StandardHeader';
 import { useTheme } from '../context/ThemeContext';
-import api from '../services/api';
+import { liveStreamAPI, getUserId } from '../services/api';
 
 // Agora Configuration - Should be moved to config file
 const AGORA_APP_ID = 'YOUR_AGORA_APP_ID'; // Replace with actual App ID
@@ -121,34 +121,49 @@ const AgoraLiveStreamScreen = ({ navigation, route }) => {
             const generatedChannelName = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             setChannelName(generatedChannelName);
 
+            // Get user ID
+            const userId = await getUserId();
+            if (!userId) {
+                Alert.alert('Error', 'Please login to start streaming');
+                setLoading(false);
+                return;
+            }
+
             // Get Agora token from backend
-            const tokenResponse = await api.post('/stream/agora-token', {
-                channelName: generatedChannelName,
-                role: 'broadcaster',
-            });
+            const tokenResponse = await liveStreamAPI.getAgoraToken(
+                generatedChannelName,
+                userId,
+                'broadcaster'
+            );
 
             if (tokenResponse.data.success && tokenResponse.data.token) {
                 setAgoraToken(tokenResponse.data.token);
                 
                 // Create stream record in backend
-                const streamResponse = await api.post('/stream/create', {
-                    channelName: generatedChannelName,
+                const streamResponse = await liveStreamAPI.createStream({
+                    channel_name: generatedChannelName,
                     title: route?.params?.title || 'Live Stream',
                     description: route?.params?.description || '',
+                    user_id: userId,
                 });
 
-                if (streamResponse.data.success) {
-                    setStreamId(streamResponse.data.stream.id);
+                if (streamResponse.data.success || streamResponse.data.status) {
+                    const stream = streamResponse.data.stream || streamResponse.data.data;
+                    if (stream?.id) {
+                        setStreamId(stream.id);
 
-                    // Join Agora channel
-                    await agoraEngine.current.joinChannel(
-                        tokenResponse.data.token,
-                        generatedChannelName,
-                        null, // uid (0 means auto-generate)
-                        {
-                            clientRoleType: ClientRoleType.ClientRoleBroadcaster,
-                        }
-                    );
+                        // Join Agora channel
+                        await agoraEngine.current.joinChannel(
+                            tokenResponse.data.token,
+                            generatedChannelName,
+                            null, // uid (0 means auto-generate)
+                            {
+                                clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+                            }
+                        );
+                    } else {
+                        throw new Error('Failed to create stream record');
+                    }
                 } else {
                     throw new Error('Failed to create stream record');
                 }
@@ -173,9 +188,10 @@ const AgoraLiveStreamScreen = ({ navigation, route }) => {
 
             // End stream in backend
             if (streamId) {
-                await api.post('/stream/end', {
-                    streamId: streamId,
-                });
+                const userId = await getUserId();
+                if (userId) {
+                    await liveStreamAPI.endStream(streamId, userId);
+                }
             }
 
             setIsStreaming(false);

@@ -94,46 +94,6 @@ class OrderController extends AdminBaseController
         return view('admin.order.details', compact('order', 'cart'));
     }
 
-    public function status($id1, $status)
-    {
-        try {
-            $order = Order::findOrFail($id1);
-            $oldStatus = $order->status;
-            
-            // Update the status
-            $order->status = $status;
-            $order->save(); // Use save() instead of update() to ensure the change is persisted
-            
-            // Award reward points when status changes to completed or delivered
-            if (($status === 'completed' || $status === 'delivered') && 
-                ($oldStatus !== 'completed' && $oldStatus !== 'delivered' && $oldStatus !== 'cancelled' && $oldStatus !== 'refunded')) {
-                
-                try {
-                    // Calculate amount in BHD (pay_amount is already in base currency, convert if needed)
-                    $amountBHD = $order->pay_amount;
-                    if ($order->currency_value && $order->currency_value > 0 && $order->currency_value != 1) {
-                        // Convert to BHD if currency_value is different from 1
-                        $amountBHD = $order->pay_amount * $order->currency_value;
-                    }
-                    
-                    // Award points: 1 BHD = 1 point
-                    // Note: Reward points awarding is handled by the API OrderController update method
-                    // This status method is for quick status changes via GET route
-                    // For full reward point integration, use the update method with POST request
-                } catch (\Exception $e) {
-                    // Log error but don't fail the status update
-                    \Log::error('Error awarding reward points: ' . $e->getMessage());
-                }
-            }
-
-            $msg = __('Status Updated Successfully.');
-            return response()->json($msg);
-        } catch (\Exception $e) {
-            \Log::error('Error updating order status: ' . $e->getMessage());
-            return response()->json(__('Error updating status: ') . $e->getMessage(), 500);
-        }
-    }
-
     public function invoice($id)
     {
         $order = Order::findOrFail($id);
@@ -198,9 +158,13 @@ class OrderController extends AdminBaseController
 
         $input = $request->all();
         if ($request->has('status')) {
-            // Allow status changes even if already completed
-            // Remove the early return that prevents status changes from completed orders
-            if ($input['status'] == "completed") {
+            if ($data->status == "completed") {
+                $input['status'] = "completed";
+                $data->update($input);
+                $msg = __('Status Updated Successfully.');
+                return response()->json($msg);
+            } else {
+                if ($input['status'] == "completed") {
 
 
 
@@ -292,22 +256,6 @@ class OrderController extends AdminBaseController
 
                     $mailer = new GeniusMailer();
                     $mailer->sendCustomMail($maildata);
-                    
-                    // Award reward points when order is completed
-                    try {
-                        if (class_exists('\App\Http\Controllers\Api\WalletController')) {
-                            $amountBHD = $data->pay_amount;
-                            if ($data->currency_value && $data->currency_value > 0 && $data->currency_value != 1) {
-                                $amountBHD = $data->pay_amount / $data->currency_value;
-                            }
-                            if ($amountBHD > 0) {
-                                \App\Http\Controllers\Api\WalletController::awardPointsOnPurchase($data->user_id, $data->id, $amountBHD);
-                            }
-                        }
-                    } catch (\Exception $e) {
-                        // Log error but don't prevent order completion
-                        \Log::error('Error awarding points on order completion: ' . $e->getMessage());
-                    }
                 }
                 if ($input['status'] == "declined") {
 
@@ -323,53 +271,28 @@ class OrderController extends AdminBaseController
                     }
 
                     $cart = json_decode($data->cart, true);
-                    
-                    // Handle both array format and object format for cart
-                    $cartItems = [];
-                    if (is_array($cart) && isset($cart['items']) && is_array($cart['items'])) {
-                        // Object format: {items: {...}}
-                        $cartItems = $cart['items'];
-                    } elseif (is_array($cart) && isset($cart[0])) {
-                        // Array format: [{...}]
-                        $cartItems = $cart;
-                    }
 
                     // Restore Product Stock If Any
-                    foreach ($cartItems as $prod) {
-                        // Handle both formats - object format has nested item, array format has direct fields
-                        $itemData = isset($prod['item']) ? $prod['item'] : $prod;
-                        $qty = isset($prod['qty']) ? $prod['qty'] : (isset($prod['quantity']) ? $prod['quantity'] : 0);
-                        $productId = isset($itemData['id']) ? $itemData['id'] : (isset($prod['product_id']) ? $prod['product_id'] : null);
-                        $stock = isset($prod['stock']) ? $prod['stock'] : null;
-                        
-                        if ($stock !== null && $productId) {
-                            $product = Product::findOrFail($productId);
-                            $product->stock = $product->stock + $qty;
+                    foreach ($cart->items as $prod) {
+                        $x = (string)$prod['stock'];
+                        if ($x != null) {
+                            $product = Product::findOrFail($prod['item']['id']);
+                            $product->stock = $product->stock + $prod['qty'];
                             $product->update();
                         }
                     }
 
                     // Restore Product Size Qty If Any
-                    foreach ($cartItems as $prod) {
-                        // Handle both formats
-                        $itemData = isset($prod['item']) ? $prod['item'] : $prod;
-                        $productId = isset($itemData['id']) ? $itemData['id'] : (isset($prod['product_id']) ? $prod['product_id'] : null);
-                        $sizeQty = isset($prod['size_qty']) ? $prod['size_qty'] : null;
-                        $sizeKey = isset($prod['size_key']) ? $prod['size_key'] : null;
-                        
-                        if (!empty($sizeQty) && $productId && $sizeKey !== null) {
-                            $product = Product::findOrFail($productId);
-                            $x = (int)$sizeQty;
+                    foreach ($cart->items as $prod) {
+                        $x = (string)$prod['size_qty'];
+                        if (!empty($x)) {
+                            $product = Product::findOrFail($prod['item']['id']);
+                            $x = (int)$x;
                             $temp = $product->size_qty;
-                            if (is_string($temp)) {
-                                $temp = explode(',', $temp);
-                            }
-                            if (is_array($temp)) {
-                                $temp[$sizeKey] = $x;
-                                $temp1 = implode(',', $temp);
-                                $product->size_qty = $temp1;
-                                $product->update();
-                            }
+                            $temp[$prod['size_key']] = $x;
+                            $temp1 = implode(',', $temp);
+                            $product->size_qty =  $temp1;
+                            $product->update();
                         }
                     }
 
@@ -382,12 +305,7 @@ class OrderController extends AdminBaseController
                     $mailer->sendCustomMail($maildata);
                 }
 
-                // Always update the order status - use save() to ensure it's persisted
-                $data->status = $input['status'];
-                if (isset($input['payment_status'])) {
-                    $data->payment_status = $input['payment_status'];
-                }
-                $data->save();
+                $data->update($input);
 
                 if ($request->track_text) {
                     $title = ucwords($request->status);
@@ -409,6 +327,7 @@ class OrderController extends AdminBaseController
 
                 $msg = __('Status Updated Successfully.');
                 return response()->json($msg);
+            }
         }
 
         $data->update($input);

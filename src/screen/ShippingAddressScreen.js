@@ -54,13 +54,8 @@ export default function ShippingAddressScreen({ navigation }) {
         brand: theme.p1,
         p1: theme.p1,
         p2: theme.p2,
-        p3: theme.p3,
-        p4: theme.p4,
         red: theme.red,
         white: theme.white,
-        muted: theme.muted || theme.gray,
-        gray: theme.gray,
-        ink: theme.ink || theme.text,
         gradients: {
             header: [theme.p2, theme.p1, theme.p1],
             button: [theme.p1, theme.p2],
@@ -198,11 +193,24 @@ export default function ShippingAddressScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.safe}>
-            <StandardHeader
-                title="Addresses"
-                navigation={navigation}
-                showGradient={true}
-            />
+            {/* HEADER (saved preference) */}
+            <LinearGradient
+                colors={gradientHeader}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={[
+                    styles.header,
+                    { paddingTop: (Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0) + 8 },
+                ]}
+            >
+                <TouchableOpacity
+                    onPress={() => navigation?.goBack && navigation.goBack()}
+                    style={styles.back}
+                >
+                    <Icon name="chevron-back" size={22} color="#fff" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Addresses</Text>
+                <View style={{ width: 32 }} />
+            </LinearGradient>
 
             {/* CONTENT */}
             <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -220,33 +228,20 @@ export default function ShippingAddressScreen({ navigation }) {
                     </TouchableOpacity>
                 </View>
 
-                {addresses.length === 0 ? (
-                    <View style={styles.emptyWrap}>
-                        <Icon name="location-outline" size={64} color={COLORS.muted} style={{ marginBottom: 16 }} />
-                        <Text style={styles.emptyTitle}>No addresses yet</Text>
-                        <Text style={styles.emptySub}>
-                            Add your first address in Bahrain to speed up checkout.
-                        </Text>
-                        <TouchableOpacity onPress={handleOpenCreate} style={styles.emptyCta}>
-                            <LinearGradient
-                                colors={COLORS.gradients.button}
-                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                style={styles.emptyCtaInner}
-                            >
-                                <Icon name="add" size={18} color="#fff" />
-                                <Text style={styles.emptyCtaText}>Add Your First Address</Text>
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <FlatList
-                        data={addresses}
-                        keyExtractor={(item) => item.id}
-                        renderItem={renderItem}
-                        scrollEnabled={false}
-                        contentContainerStyle={{ paddingBottom: 24 }}
-                    />
-                )}
+                <FlatList
+                    data={addresses}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderItem}
+                    ListEmptyComponent={
+                        <View style={styles.emptyWrap}>
+                            <Text style={styles.emptyTitle}>No addresses yet</Text>
+                            <Text style={styles.emptySub}>
+                                Add your first address in Bahrain to speed up checkout.
+                            </Text>
+                        </View>
+                    }
+                    contentContainerStyle={{ paddingBottom: 24 }}
+                />
             </ScrollView>
 
             {/* CREATE / EDIT MODAL */}
@@ -400,18 +395,9 @@ const createStyles = (COLORS) => StyleSheet.create({
         fontSize: 18, fontWeight: '700', letterSpacing: 0.3,
     },
 
-    content: { padding: 16, paddingBottom: 24 },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 16,
-    },
-    sectionTitle: {
-        fontSize: 20,
-        color: COLORS.ink,
-        fontWeight: '800',
-    },
+    content: { padding: 16, gap: 16 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+    sectionTitle: { flex: 1, fontSize: 16, color: COLORS.ink, fontWeight: '700' },
     addBtn: { borderRadius: 12, overflow: 'hidden' },
     addBtnInner: {
         paddingHorizontal: 14, paddingVertical: 10,
@@ -457,29 +443,12 @@ const createStyles = (COLORS) => StyleSheet.create({
         paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden',
     },
 
-    modalBackdrop: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'flex-end',
-    },
+    modalBackdrop: { flex: 1, backgroundColor: 'rgba(15,16,32,0.35)', justifyContent: 'flex-end' },
     modalCard: {
-        backgroundColor: COLORS.white || '#FFFFFF',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        padding: 20,
-        paddingBottom: Platform.OS === 'ios' ? 34 : 24,
-        borderWidth: 1,
-        borderColor: COLORS.line,
-        gap: 12,
-        maxHeight: '90%',
+        backgroundColor: COLORS.card, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+        padding: 16, paddingBottom: 24, borderWidth: 1, borderColor: COLORS.line, gap: 10,
     },
-    modalTitle: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: COLORS.ink,
-        textAlign: 'center',
-        marginBottom: 4,
-    },
+    modalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.ink, textAlign: 'center', marginBottom: 8 },
 
     tagRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
     tagBtn: {
@@ -521,41 +490,7 @@ const createStyles = (COLORS) => StyleSheet.create({
     ctaBtnInner: { paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
     ctaBtnText: { color: COLORS.white, fontWeight: '800' },
 
-    emptyWrap: {
-        alignItems: 'center',
-        paddingVertical: 60,
-        paddingHorizontal: 24,
-        gap: 8,
-    },
-    emptyTitle: {
-        fontWeight: '800',
-        color: COLORS.ink,
-        fontSize: 18,
-        marginTop: 8,
-    },
-    emptySub: {
-        color: COLORS.gray,
-        fontSize: 14,
-        textAlign: 'center',
-        lineHeight: 20,
-        marginBottom: 8,
-    },
-    emptyCta: {
-        marginTop: 16,
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    emptyCtaInner: {
-        paddingHorizontal: 24,
-        paddingVertical: 14,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        borderRadius: 12,
-    },
-    emptyCtaText: {
-        color: COLORS.white,
-        fontWeight: '700',
-        fontSize: 15,
-    },
+    emptyWrap: { alignItems: 'center', paddingVertical: 40, gap: 6 },
+    emptyTitle: { fontWeight: '800', color: COLORS.ink },
+    emptySub: { color: COLORS.gray, fontSize: 13, textAlign: 'center', paddingHorizontal: 16 },
 });

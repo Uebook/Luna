@@ -30,4 +30,3 @@ class ProductChatbotQuery extends Model
 
 
 
-
