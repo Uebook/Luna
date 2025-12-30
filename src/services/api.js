@@ -138,12 +138,15 @@ export const cartAPI = {
     });
   },
 
-  // Remove from cart
-  removeFromCart: async (userId, productId) => {
-    return apiClient.post('/cart/remove', {
-      user_id: userId,
-      product_id: productId,
-    });
+  // Remove from cart - accepts either product_id or cart_id
+  removeFromCart: async (userId, productIdOrCartId, useCartId = false) => {
+    const payload = { user_id: userId };
+    if (useCartId) {
+      payload.cart_id = productIdOrCartId;
+    } else {
+      payload.product_id = productIdOrCartId;
+    }
+    return apiClient.post('/cart/remove', payload);
   },
 
   // Clear cart

@@ -170,7 +170,18 @@ const CartScreen = () => {
         const performRemove = async () => {
             try {
                 const userId = await getUserId();
-                const productId = itemId; // Use product_id for API
+                
+                // Find the item in current cart to get cart_id and product_id
+                const itemToRemove = cartItems.find(item =>
+                    (item.id === itemId || item.product_id === itemId) &&
+                    item.selectedSize === selectedSize &&
+                    item.selectedColor === selectedColor
+                );
+
+                if (!itemToRemove) {
+                    console.log('Item not found in cart');
+                    return;
+                }
 
                 if (!userId) {
                     // Fallback to AsyncStorage if not logged in
@@ -186,18 +197,67 @@ const CartScreen = () => {
                     return;
                 }
 
-                // Remove via API
-                const response = await cartAPI.removeFromCart(userId, productId);
+                // Remove via API - prefer cart_id if available, otherwise use product_id
+                let response;
+                if (itemToRemove.cart_id) {
+                    // Use cart_id for more precise removal
+                    response = await cartAPI.removeFromCart(userId, itemToRemove.cart_id, true);
+                } else {
+                    // Fallback to product_id
+                    const productId = itemToRemove.product_id || itemToRemove.id;
+                    response = await cartAPI.removeFromCart(userId, productId, false);
+                }
                 
                 if (response.data.success) {
-                    // Reload cart to get updated data
+                    // Optimistically update UI first
+                    const updatedCart = cartItems.filter(item =>
+                        !(item.id === itemId &&
+                            item.selectedSize === selectedSize &&
+                            item.selectedColor === selectedColor)
+                    );
+                    setCartItems(updatedCart);
+                    
+                    // Also update AsyncStorage
+                    await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(updatedCart));
+                    
+                    // Reload cart to sync with server
                     await loadCartItems();
                 } else {
-                    Alert.alert('Error', response.data.message || 'Failed to remove item from cart');
+                    // If API fails, try AsyncStorage fallback
+                    console.log('API removal failed, trying storage fallback');
+                    const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+                    let cart = cartData ? JSON.parse(cartData) : [];
+                    const filteredCart = cart.filter(item =>
+                        !(item.id === itemId &&
+                            item.selectedSize === selectedSize &&
+                            item.selectedColor === selectedColor)
+                    );
+                    await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(filteredCart));
+                    setCartItems(filteredCart);
+                    
+                    // Show warning but don't block user
+                    console.log('Removed from local storage, but API call failed');
                 }
             } catch (error) {
                 console.log('Error removing item:', error);
-                Alert.alert('Error', 'Failed to remove item from cart. Please try again.');
+                console.log('Error details:', error.response?.data || error.message);
+                
+                // Fallback to AsyncStorage on error
+                try {
+                    const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+                    let cart = cartData ? JSON.parse(cartData) : [];
+                    const filteredCart = cart.filter(item =>
+                        !(item.id === itemId &&
+                            item.selectedSize === selectedSize &&
+                            item.selectedColor === selectedColor)
+                    );
+                    await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(filteredCart));
+                    setCartItems(filteredCart);
+                    console.log('Removed from local storage as fallback');
+                } catch (storageError) {
+                    console.log('Error removing from storage:', storageError);
+                    Alert.alert('Error', 'Failed to remove item from cart. Please try again.');
+                }
             }
         };
 
@@ -232,14 +292,14 @@ const CartScreen = () => {
         return savedItems.has(itemKey);
     };
 
-    // Totals (KWD)
+    // Totals (BHD)
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const discount = subtotal * 0.10; // 10% discount
-    const shipping = subtotal > 50 ? 0 : 49.000; // Free shipping above 50 KWD
+    const shipping = subtotal > 50 ? 0 : 49.000; // Free shipping above 50 BHD
     const total = subtotal - discount + shipping;
     const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-    const formatPrice = (price) => `${parseFloat(price).toFixed(3)} KWD`;
+    const formatPrice = (price) => `${parseFloat(price).toFixed(3)} BHD`;
 
     const getColorName = (hex) => {
         const colorMap = {
@@ -274,13 +334,16 @@ const CartScreen = () => {
                 </TouchableOpacity>
 
                 {/* Product Image */}
-                <View style={responsiveStyles.imageContainer}>
+                <TouchableOpacity 
+                    style={responsiveStyles.imageContainer}
+                    onPress={() => navigation.navigate('ProductDetailScreen', { productId: item.product_id || item.id })}
+                >
                     <Image
-                        source={{ uri: item.image || 'https://via.placeholder.com/80x80' }}
+                        source={{ uri: item.image || getImageUrl(item.photo) || 'https://via.placeholder.com/80x80' }}
                         style={responsiveStyles.productImage}
                         resizeMode="cover"
                     />
-                </View>
+                </TouchableOpacity>
 
                 {/* Product Details */}
                 <View style={responsiveStyles.productDetails}>
@@ -467,6 +530,23 @@ const CartScreen = () => {
                             <Text style={responsiveStyles.freeShippingText}>You qualify for free shipping!</Text>
                         </View>
                     )}
+
+                    {/* Checkout Button in Price Card */}
+                    <TouchableOpacity
+                        style={responsiveStyles.checkoutButtonInCard}
+                        onPress={() => navigation.navigate('CheckoutScreen')}
+                        activeOpacity={0.8}
+                    >
+                        <LinearGradient
+                            colors={[Colors.p1, Colors.p2]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={responsiveStyles.checkoutGradientInCard}
+                        >
+                            <Text style={responsiveStyles.checkoutButtonTextInCard}>PROCEED TO CHECKOUT</Text>
+                            <Icon name="arrow-forward" size={getResponsiveSize(20)} color={Colors.white} />
+                        </LinearGradient>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Security Banner */}
@@ -593,7 +673,7 @@ const createResponsiveStyles = (windowWidth, windowHeight) => {
         cartItemTablet: { padding: getSpacing(20) },
         checkbox: { marginRight: getSpacing(12), justifyContent: 'flex-start' },
         imageContainer: { marginRight: getSpacing(12) },
-        productImage: { width: getResponsiveSize(80), height: getResponsiveSize(80), borderRadius: 8, backgroundColor: Colors.bg },
+        productImage: { width: getResponsiveSize(100), height: getResponsiveSize(100), borderRadius: 8, backgroundColor: Colors.bg },
         productDetails: { flex: 1 },
         productName: { fontSize: getResponsiveSize(14), fontWeight: '600', color: Colors.ink, lineHeight: getResponsiveSize(18), marginBottom: getSpacing(6) },
         variantContainer: { flexDirection: 'row', marginBottom: getSpacing(6), flexWrap: 'wrap' },
@@ -649,6 +729,36 @@ const createResponsiveStyles = (windowWidth, windowHeight) => {
             borderRadius: 6, marginTop: getSpacing(12),
         },
         freeShippingText: { fontSize: getResponsiveSize(12), color: Colors.success, fontWeight: '600', marginLeft: getSpacing(6) },
+        checkoutButtonInCard: {
+            marginTop: getSpacing(16),
+            borderRadius: 8,
+            overflow: 'hidden',
+            ...Platform.select({ 
+                ios: { 
+                    shadowColor: Colors.ink, 
+                    shadowOffset: { width: 0, height: 2 }, 
+                    shadowOpacity: 0.2, 
+                    shadowRadius: 4 
+                }, 
+                android: { 
+                    elevation: 4 
+                } 
+            }),
+        },
+        checkoutGradientInCard: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: getSpacing(16),
+            paddingHorizontal: getSpacing(20),
+        },
+        checkoutButtonTextInCard: {
+            color: Colors.white,
+            fontSize: getResponsiveSize(16),
+            fontWeight: '700',
+            marginRight: getSpacing(8),
+            letterSpacing: 0.5,
+        },
 
         securityBanner: {
             flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, marginHorizontal: getSpacing(16),
